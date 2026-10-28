@@ -1,7 +1,7 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "2-ibm-logo.ch8"
+const ROM_PATH := "res://roms/3-corax+.ch8"
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -12,7 +12,7 @@ const FONT := [
 	0xF0, 0x80, 0xF0, 0x10, 0xF0, ## 5
 	0xF0, 0x80, 0xF0, 0x90, 0xF0, ## 6
 	0xF0, 0x10, 0x20, 0x40, 0x40, ## 7
-	0xF0, 0x10, 0x20, 0x40, 0x40, ## 8
+	0xF0, 0x90, 0xF0, 0x90, 0xF0, ## 8
 	0xF0, 0x90, 0xF0, 0x10, 0xF0, ## 9
 	0xF0, 0x90, 0xF0, 0x90, 0x90, ## A
 	0xE0, 0x90, 0xE0, 0x90, 0xE0, ## B
@@ -161,7 +161,7 @@ func step() -> void:
 					V[0xF] = flag
 				0x7:
 					var diff := V[y] - V[x]
-					var flag := 1 if V[y] >- V[x] else 0 
+					var flag := 1 if V[y] >= V[x] else 0 
 					V[x] = diff & 0xFF
 					V[0xF] = flag
 				0x6:
@@ -169,13 +169,9 @@ func step() -> void:
 					V[x] = (V[y] >> 1) & 0xFF
 					V[0xF] = flag
 				0xE:
-					var flag := V[y] & 1
+					var flag := (V[y] >> 7) & 1
 					V[x] = (V[y] << 1) & 0xFF
 					V[0xF] = flag
-				0xB:
-					pc = nnn + V[0]
-				0xC:
-					V[x] = randi_range(0, 255) & nn
 				_:
 					print("UNKNOWN %04X" % opcode)
 		0x9:
@@ -183,24 +179,10 @@ func step() -> void:
 				pc += 2
 		0xA:
 			I = nnn
-		0xF:
-			match nn:
-				0x1E:
-					I = (I + V[x]) & 0xFFFF
-				0x29:
-					I = FONT_START + (V[x] & 0xF) * 5
-				0x33:
-					memory[I] = V[x] / 100
-					memory[I + 1] = (V[x] / 10) % 10
-					memory[I + 2] = V[x] % 10
-				0x55: ## Stores V0 through Vx in memory
-					for i in range(x + 1):
-						memory[I] = V[i]
-						I += 1
-				0x65: ## Loads V0 through Vx from memory
-					for i in range(x + 1):
-						V[i] = memory[I]
-						I += 1
+		0xB:
+			pc = nnn + V[0]
+		0xC:
+			V[x] = randi_range(0, 255) & nn
 		0xD:
 			var px := V[x] % 64
 			var py := V[y] % 32
@@ -219,5 +201,23 @@ func step() -> void:
 					if display[idx] == 1:
 						V[0xF] = 1
 					display[idx] = display[idx] ^ 1
+		0xF:
+			match nn:
+				0x1E:
+					I = (I + V[x]) & 0xFFFF
+				0x29:
+					I = FONT_START + (V[x] & 0xF) * 5
+				0x33:
+					memory[I] = V[x] / 100
+					memory[I + 1] = (V[x] / 10) % 10
+					memory[I + 2] = V[x] % 10
+				0x55: ## Stores V0 through Vx in memory
+					for i in range(x + 1):
+						memory[I] = V[i]
+						I += 1
+				0x65: ## Loads V0 through Vx from memory
+					for i in range(x + 1):
+						V[i] = memory[I]
+						I += 1
 		_:
 			print("UNKNOWN %04X" % opcode)
