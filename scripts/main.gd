@@ -1,7 +1,7 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "res://roms/2-ibm-logo.ch8"
+const ROM_PATH := "2-ibm-logo.ch8"
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -25,6 +25,7 @@ const FONT := [
 var stack: Array[int] = []
 var delay_timer := 0
 var sound_timer := 0
+var rom_loaded := false
 
 var img: Image
 var tex: ImageTexture
@@ -37,7 +38,7 @@ var V := PackedByteArray()  ## Registers from VO to VF
 var I := 0 ## This is the index register
 var pc := 0x200 ## pc stands for program counter, if you arent in the know. 
 
-func load_rom(path: String) -> void:
+func load_rom(path: String) -> bool:
 	memory.resize(4096) ## Resets everything to a clean slate
 	memory.fill(0)
 	V.resize(16)
@@ -53,12 +54,21 @@ func load_rom(path: String) -> void:
 	for i in FONT.size():  ## Font gets loaded into the reserved area
 		memory[FONT_START + i] = FONT[i]
 	
-	var rom := FileAccess.get_file_as_bytes(path) ## And of course, the program goes to 0x200 which is the free area or something
+	var rom := FileAccess.get_file_as_bytes(path)
+	
 	if rom.is_empty():
 		push_error("Could not load ROM: " + path)
-		return
+		return false
+	
+	if rom.size() > memory.size() - 0x200:
+		push_error("ROM is too large to fit in CHIP-8 memory: " + path)
+		return false
+	
 	for i in rom.size():
 		memory[0x200 + i] = rom[i]
+	
+	print("Loaded ", rom.size(), " bytes from ", path)
+	return true
 
 func setup_screen() -> void:
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
@@ -68,21 +78,33 @@ func setup_screen() -> void:
 
 func draw_screen() -> void:
 	for sy in 32:
-		tex.update(img)
 		for sx in 64:
 			var on := display[sy * 64 + sx] == 1
 			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
+	tex.update(img)
 
 func _ready() -> void:
 	setup_screen()
-	load_rom(ROM_PATH)
+	rom_loaded = load_rom(ROM_PATH)
 
 func _physics_process(_delta: float) -> void:
+	if not rom_loaded:
+		return
+	
 	for i in INSTRUCTIONS_PER_FRAME:
 		step()
+	
 	draw_screen()
 
 func step() -> void:
+	if not rom_loaded:
+		return
+	
+	if pc < 0 or pc + 1 >= memory.size():
+		push_error("Program counter outside memory: 0x%03X" % pc)
+		rom_loaded = false
+		return
+		
 	var opcode := (memory[pc] << 8) | memory[pc + 1]
 	pc += 2
 	
