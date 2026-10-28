@@ -1,7 +1,7 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "res://roms/6-keypad.ch8"
+const ROM_PATH := "res://roms/5-quirks.ch8"
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -41,6 +41,7 @@ var tex: ImageTexture
 @onready var screen: TextureRect = $Screen
 
 var display := PackedByteArray()
+var drew_this_frame := false
 
 var memory := PackedByteArray()
 var V := PackedByteArray()  ## Registers from VO to VF
@@ -108,8 +109,11 @@ func _physics_process(_delta: float) -> void:
 	if not rom_loaded:
 		return
 	
+	drew_this_frame = false
 	for i in INSTRUCTIONS_PER_FRAME:
 		step()
+		if drew_this_frame:
+			break
 	
 	if delay_timer > 0:
 		delay_timer -= 1
@@ -167,10 +171,13 @@ func step() -> void:
 					V[x] = V[y]
 				0x1:
 					V[x] = V[x] | V[y]
+					V[0xF] = 0
 				0x2:
 					V[x] = V[x] & V[y]
+					V[0xF] = 0
 				0x3:
 					V[x] = V[x] ^ V[y]
+					V[0xF] = 0
 				0x4:
 					var sum := V[x] + V[y]
 					var flag := 1 if sum > 255 else 0
@@ -223,6 +230,7 @@ func step() -> void:
 					if display[idx] == 1:
 						V[0xF] = 1
 					display[idx] = display[idx] ^ 1
+					drew_this_frame = true
 		0xE:
 			match nn:
 				0x9E:
@@ -249,7 +257,7 @@ func step() -> void:
 						else:
 							pc -= 2
 				0x1E:
-					I = (I + V[x]) & 0xFFFF
+					I = (I + V[x]) & 0xFFF
 				0x07:
 					V[x] = delay_timer
 				0x15:
