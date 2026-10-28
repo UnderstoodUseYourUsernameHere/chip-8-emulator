@@ -1,6 +1,30 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
+const ROM_PATH := "res://roms/2-ibm-logo.ch8"
+const FONT_START := 0x50
+const FONT := [
+	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
+	0x20, 0x60, 0x20, 0x20, 0x70, ## 1
+	0xF0, 0x10, 0xF0, 0x80, 0xF0, ## 2
+	0xF0, 0x10, 0xF0, 0x10, 0xF0, ## 3
+	0x90, 0x90, 0xF0, 0x10, 0x10, ## 4
+	0xF0, 0x80, 0xF0, 0x10, 0xF0, ## 5
+	0xF0, 0x80, 0xF0, 0x90, 0xF0, ## 6
+	0xF0, 0x10, 0x20, 0x40, 0x40, ## 7
+	0xF0, 0x10, 0x20, 0x40, 0x40, ## 8
+	0xF0, 0x90, 0xF0, 0x10, 0xF0, ## 9
+	0xF0, 0x90, 0xF0, 0x90, 0x90, ## A
+	0xE0, 0x90, 0xE0, 0x90, 0xE0, ## B
+	0xF0, 0x80, 0x80, 0x80, 0xF0, ## C
+	0xE0, 0x90, 0x90, 0x90, 0xE0, ## D
+	0xF0, 0x80, 0xF0, 0x80, 0xF0, ## E
+	0xF0, 0x80, 0xF0, 0x80, 0x80, ## F
+]
+
+var stack: Array[int] = []
+var delay_timer := 0
+var sound_timer := 0
 
 var img: Image
 var tex: ImageTexture
@@ -12,6 +36,29 @@ var memory := PackedByteArray()
 var V := PackedByteArray()  ## Registers from VO to VF
 var I := 0 ## This is the index register
 var pc := 0x200 ## pc stands for program counter, if you arent in the know. 
+
+func load_rom(path: String) -> void:
+	memory.resize(4096) ## Resets everything to a clean slate
+	memory.fill(0)
+	V.resize(16)
+	V.fill(0)
+	display.resize(64 * 32)
+	display.fill(0)
+	stack.clear()
+	I = 0
+	pc = 0x200
+	delay_timer = 0
+	sound_timer = 0
+	
+	for i in FONT.size():  ## Font gets loaded into the reserved area
+		memory[FONT_START + i] = FONT[i]
+	
+	var rom := FileAccess.get_file_as_bytes(path) ## And of course, the program goes to 0x200 which is the free area or something
+	if rom.is_empty():
+		push_error("Could not load ROM: " + path)
+		return
+	for i in rom.size():
+		memory[0x200 + i] = rom[i]
 
 func setup_screen() -> void:
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
@@ -28,12 +75,7 @@ func draw_screen() -> void:
 
 func _ready() -> void:
 	setup_screen()
-	display.resize(64 * 32)
-	var rom: PackedByteArray = FileAccess.get_file_as_bytes("res://roms/2-ibm-logo.ch8")
-	memory.resize(4096)
-	V.resize(16)
-	for i in rom.size():
-		memory[0x200 + i] = rom[i]
+	load_rom(ROM_PATH)
 
 func _physics_process(_delta: float) -> void:
 	for i in INSTRUCTIONS_PER_FRAME:
