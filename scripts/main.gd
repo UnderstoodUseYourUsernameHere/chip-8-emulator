@@ -1,7 +1,8 @@
 extends Control
 
-const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "res://games/Brix.ch8"
+@onready var rom_picker: OptionButton = $HBoxContainer/VBoxContainer/RomPicker
+@onready var screen: TextureRect = $HBoxContainer/Screen
+
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -31,6 +32,19 @@ const KEYMAP := [
 var keys := PackedByteArray()
 var waiting_for_key := -1
 
+const ROMS := {
+	"IBM Logo": "res://roms/2-ibm-logo.ch8",
+	"Corax+ Test": "res://roms/3-corax+.ch8",
+	"Quirks Test": "res://roms/5-quirks.ch8",
+	"Keypad Test": "res://roms/6-keypad.ch8",
+	"Brix": "res://games/Brix.ch8",
+	"Cave": "res://games/Cave.ch8",
+}
+
+var instructions_per_frame := 11
+var current_rom := ""
+var paused := false
+
 var stack: Array[int] = []
 var delay_timer := 0
 var sound_timer := 0
@@ -38,7 +52,6 @@ var rom_loaded := false
 
 var img: Image
 var tex: ImageTexture
-@onready var screen: TextureRect = $Screen
 
 var display := PackedByteArray()
 var drew_this_frame := false
@@ -109,6 +122,25 @@ func setup_sound() -> void:
 	beep.volume_db = -12
 	add_child(beep)
 
+func setup_picker() -> void:
+	for rom_name in ROMS.keys():
+		rom_picker.add_item(rom_name)
+	rom_picker.item_selected.connect(_on_rom_selected)
+	rom_picker.focus_mode = Control.FOCUS_NONE
+
+func _on_rom_selected(index: int) -> void:
+	current_rom = ROMS.values()[index]
+	rom_loaded = load_rom(current_rom)
+
+func _input(event: InputEvent) -> void:
+	if not (event is InputEventKey) or not event.pressed or event.echo:
+		return
+	match event.keycode:
+		KEY_ESCAPE:
+			rom_loaded = load_rom(current_rom)
+		KEY_P:
+			paused = not paused
+
 func draw_screen() -> void:
 	for sy in 32:
 		for sx in 64:
@@ -122,31 +154,27 @@ func read_keys() -> void:
 
 func _ready() -> void:
 	setup_screen()
-	rom_loaded = load_rom(ROM_PATH)
+	setup_sound()
+	setup_picker()
+	_on_rom_selected(0)
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
-	if not rom_loaded:
-		return
-	
-	drew_this_frame = false
-	for i in INSTRUCTIONS_PER_FRAME:
-		step()
-		if drew_this_frame:
-			break
-	
-	if delay_timer > 0:
-		delay_timer -= 1
-	if sound_timer > 0:
-		sound_timer -= 1 
-	
-	if sound_timer > 0 and not beep.playing:
-		beep.play()
-	elif sound_timer == 0 and beep.playing:
-		beep.stop()
-	
-	draw_screen()
-
+	if rom_loaded and not paused:
+		drew_this_frame = false
+		for i in instructions_per_frame:
+			step()
+			if drew_this_frame:
+				break
+		if delay_timer > 0:
+			delay_timer -= 1
+		if sound_timer > 0:
+			sound_timer -= 1
+		if sound_timer > 0 and not beep.playing:
+			beep.play()
+		elif sound_timer == 0 and beep.playing:
+			beep.stop()
+		draw_screen()
 func step() -> void:
 	if not rom_loaded:
 		return
