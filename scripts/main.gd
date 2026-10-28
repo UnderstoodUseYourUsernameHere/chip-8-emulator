@@ -117,6 +117,41 @@ func step() -> void:
 			V[x] = nn 
 		0x7:
 			V[x] = (V[x] + nn) & 0xFF
+		0x8:
+			match n:
+				0x0:
+					V[x] = V[y]
+				0x1:
+					V[x] = V[x] | V[y]
+				0x2:
+					V[x] = V[x] & V[y]
+				0x3:
+					V[x] = V[x] ^ V[y]
+				0x4:
+					var sum := V[x] + V[y]
+					var flag := 1 if sum > 255 else 0
+					V[x] = sum & 0xFF
+					V[0xF] = flag
+				0x5:
+					var diff := V[x] - V[y]
+					var flag := 1 if V[x] >= V[y] else 0
+					V[x] = diff & 0xFF
+					V[0xF] = flag
+				0x7:
+					var diff := V[y] - V[x]
+					var flag := 1 if V[y] >- V[x] else 0 
+					V[x] = diff & 0xFF
+					V[0xF] = flag
+				0x6:
+					var flag := V[y] & 1
+					V[x] = (V[y] >> 1) & 0xFF
+					V[0xF] = flag
+				0xE:
+					var flag := V[y] & 1
+					V[x] = (V[y] << 1) & 0xFF
+					V[0xF] = flag
+				_:
+					print("UNKNOWN %04X" % opcode)
 		0x9:
 			if V[x] != V[y]:
 				pc += 2
