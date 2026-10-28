@@ -1,7 +1,7 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "res://roms/3-corax+.ch8"
+const ROM_PATH := "res://roms/6-keypad.ch8"
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -25,7 +25,7 @@ const FONT := [
 const KEYMAP := [
 	KEY_X, KEY_1, KEY_2, KEY_3, ## 0 1 2 3
 	KEY_Q, KEY_W, KEY_E, KEY_A, ## 4 5 6 7 
-	KEY_8, KEY_D, KEY_Z, KEY_C, ## 8 9 A B
+	KEY_S, KEY_D, KEY_Z, KEY_C, ## 8 9 A B
 	KEY_4, KEY_R, KEY_F, KEY_V, ## C D E F
 ]
 var keys := PackedByteArray()
@@ -96,7 +96,7 @@ func draw_screen() -> void:
 	tex.update(img)
 
 func read_keys() -> void:
-	for k in 10:
+	for k in 16:
 		keys[k] = 1 if Input.is_physical_key_pressed(KEYMAP[k]) else 0
 
 func _ready() -> void:
@@ -223,8 +223,31 @@ func step() -> void:
 					if display[idx] == 1:
 						V[0xF] = 1
 					display[idx] = display[idx] ^ 1
+		0xE:
+			match nn:
+				0x9E:
+					if keys[V[x] & 0xF] == 1:
+						pc += 2
+				0xA1:
+					if keys[V[x] & 0xF] == 0:
+						pc += 2
+				_:
+					print("UNKNOWN %04X" % opcode)
 		0xF:
 			match nn:
+				0x0A:
+					if waiting_for_key == -1:
+						for i in range(16):
+							if keys[i] == 1:
+								waiting_for_key = i
+								break
+						pc -= 2
+					else:
+						if keys[waiting_for_key] == 0:
+							V[x] = waiting_for_key
+							waiting_for_key = -1
+						else:
+							pc -= 2
 				0x1E:
 					I = (I + V[x]) & 0xFFFF
 				0x07:
