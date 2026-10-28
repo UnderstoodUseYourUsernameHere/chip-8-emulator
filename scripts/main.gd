@@ -150,6 +150,10 @@ func step() -> void:
 					var flag := V[y] & 1
 					V[x] = (V[y] << 1) & 0xFF
 					V[0xF] = flag
+				0xB:
+					pc = nnn + V[0]
+				0xC:
+					V[x] = randi_range(0, 255) & nn
 				_:
 					print("UNKNOWN %04X" % opcode)
 		0x9:
