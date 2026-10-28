@@ -94,6 +94,11 @@ func _physics_process(_delta: float) -> void:
 	for i in INSTRUCTIONS_PER_FRAME:
 		step()
 	
+	if delay_timer > 0:
+		delay_timer -= 1
+	if sound_timer > 0:
+		sound_timer -= 1 
+	
 	draw_screen()
 
 func step() -> void:
@@ -205,6 +210,12 @@ func step() -> void:
 			match nn:
 				0x1E:
 					I = (I + V[x]) & 0xFFFF
+				0x07:
+					V[x] = delay_timer
+				0x15:
+					delay_timer = V[x]
+				0x18:
+					sound_timer = V[x]
 				0x29:
 					I = FONT_START + (V[x] & 0xF) * 5
 				0x33:
