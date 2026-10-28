@@ -22,6 +22,15 @@ const FONT := [
 	0xF0, 0x80, 0xF0, 0x80, 0x80, ## F
 ]
 
+const KEYMAP := [
+	KEY_X, KEY_1, KEY_2, KEY_3, ## 0 1 2 3
+	KEY_Q, KEY_W, KEY_E, KEY_A, ## 4 5 6 7 
+	KEY_8, KEY_D, KEY_Z, KEY_C, ## 8 9 A B
+	KEY_4, KEY_R, KEY_F, KEY_V, ## C D E F
+]
+var keys := PackedByteArray()
+var waiting_for_key := -1
+
 var stack: Array[int] = []
 var delay_timer := 0
 var sound_timer := 0
@@ -46,6 +55,9 @@ func load_rom(path: String) -> bool:
 	display.resize(64 * 32)
 	display.fill(0)
 	stack.clear()
+	keys.resize(16) 
+	keys.fill(0)
+	waiting_for_key = -1
 	I = 0
 	pc = 0x200
 	delay_timer = 0
@@ -83,11 +95,16 @@ func draw_screen() -> void:
 			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
 	tex.update(img)
 
+func read_keys() -> void:
+	for k in 10:
+		keys[k] = 1 if Input.is_physical_key_pressed(KEYMAP[k]) else 0
+
 func _ready() -> void:
 	setup_screen()
 	rom_loaded = load_rom(ROM_PATH)
 
 func _physics_process(_delta: float) -> void:
+	read_keys()
 	if not rom_loaded:
 		return
 	
