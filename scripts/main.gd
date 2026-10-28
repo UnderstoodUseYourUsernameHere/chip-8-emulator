@@ -219,5 +219,5 @@ func step() -> void:
 					for i in range(x + 1):
 						V[i] = memory[I]
 						I += 1
-		_:
-			print("UNKNOWN %04X" % opcode)
+				_:
+					print("UNKNOWN %04X" % opcode)
