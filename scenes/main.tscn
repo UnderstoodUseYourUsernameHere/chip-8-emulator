@@ -1,0 +1,17 @@
+[gd_scene format=3 uid="uid://octffbf5ai3y"]
+
+[ext_resource type="Script" uid="uid://cjfrrxdf65mou" path="res://scripts/main.gd" id="1_o5qli"]
+
+[node name="Main" type="Control" unique_id=1691564137]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+script = ExtResource("1_o5qli")
+
+[node name="Screen" type="TextureRect" parent="." unique_id=1743842365]
+layout_mode = 0
+offset_right = 40.0
+offset_bottom = 40.0
