@@ -99,15 +99,27 @@ func step() -> void:
 				display.fill(0)
 			elif opcode == 0x00EE:
 				pc = stack.pop_back()
+		0x1:
+			pc = nnn
 		0x2:
 			stack.append(pc)
 			pc = nnn
-		0x1:
-			pc = nnn
+		0x3:
+			if V[x] == nn:
+				pc += 2
+		0x4:
+			if V[x] != nn:
+				pc += 2
+		0x5:
+			if V[x] == V[y]:
+				pc += 2
 		0x6:
 			V[x] = nn 
 		0x7:
 			V[x] = (V[x] + nn) & 0xFF
+		0x9:
+			if V[x] != V[y]:
+				pc += 2
 		0xA:
 			I = nnn
 		0xD:
