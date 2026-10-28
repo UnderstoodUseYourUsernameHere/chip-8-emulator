@@ -1,5 +1,7 @@
 extends Control
 
+const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
+
 var img: Image
 var tex: ImageTexture
 @onready var screen: TextureRect = $Screen
@@ -14,17 +16,15 @@ var pc := 0x200 ## pc stands for program counter, if you arent in the know.
 func setup_screen() -> void:
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
 	img.fill(Color.BLACK)
-	img.set_pixel(0, 0, Color.WHITE)
-	img.set_pixel(5, 5, Color.WHITE)
 	tex = ImageTexture.create_from_image(img)
 	screen.texture = tex
 
 func draw_screen() -> void:
 	for sy in 32:
+		tex.update(img)
 		for sx in 64:
 			var on := display[sy * 64 + sx] == 1
 			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
-		tex.update(img)
 
 func _ready() -> void:
 	setup_screen()
@@ -34,14 +34,9 @@ func _ready() -> void:
 	V.resize(16)
 	for i in rom.size():
 		memory[0x200 + i] = rom[i]
-	print("mem 200 = %02X" % memory[0x200])
-	print("mem 201 = %02X" % memory [0x201])
-	print("rom size = ", rom.size())
-	print(V)
-	print("I = %03X" % I)
 
-func _process(_delta: float) -> void:
-	for i in 10:
+func _physics_process(_delta: float) -> void:
+	for i in INSTRUCTIONS_PER_FRAME:
 		step()
 	draw_screen()
 
@@ -58,7 +53,6 @@ func step() -> void:
 	
 	match first:
 		0x0:
-			print("TODO 00E0 clear")
 			display.fill(0)
 		0x1:
 			pc = nnn
@@ -69,7 +63,6 @@ func step() -> void:
 		0xA:
 			I = nnn
 		0xD:
-			print("TODO DXYN draw at V%X,V%X height %d" % [x, y, n])
 			var px := V[x] % 64
 			var py := V[y] % 32
 			V[0xF] = 0
