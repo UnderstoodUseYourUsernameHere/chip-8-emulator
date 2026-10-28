@@ -95,7 +95,13 @@ func step() -> void:
 	
 	match first:
 		0x0:
-			display.fill(0)
+			if opcode == 0x00E0:
+				display.fill(0)
+			elif opcode == 0x00EE:
+				pc = stack.pop_back()
+		0x2:
+			stack.append(pc)
+			pc = nnn
 		0x1:
 			pc = nnn
 		0x6:
