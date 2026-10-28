@@ -161,6 +161,24 @@ func step() -> void:
 				pc += 2
 		0xA:
 			I = nnn
+		0xF:
+			match nn:
+				0x1E:
+					I = (I + V[x]) & 0xFFFF
+				0x29:
+					I = FONT_START + (V[x] & 0xF) * 5
+				0x33:
+					memory[I] = V[x] / 100
+					memory[I + 1] = (V[x] / 10) % 10
+					memory[I + 2] = V[x] % 10
+				0x55: ## Stores V0 through Vx in memory
+					for i in range(x + 1):
+						memory[I] = V[i]
+						I += 1
+				0x65: ## Loads V0 through Vx from memory
+					for i in range(x + 1):
+						V[i] = memory[I]
+						I += 1
 		0xD:
 			var px := V[x] % 64
 			var py := V[y] % 32
