@@ -43,6 +43,8 @@ var tex: ImageTexture
 var display := PackedByteArray()
 var drew_this_frame := false
 
+var beep := AudioStreamPlayer.new()
+
 var memory := PackedByteArray()
 var V := PackedByteArray()  ## Registers from VO to VF
 var I := 0 ## This is the index register
@@ -89,6 +91,24 @@ func setup_screen() -> void:
 	tex = ImageTexture.create_from_image(img)
 	screen.texture = tex
 
+func setup_sound() -> void:
+	var rate := 22050
+	var frames := int(rate / 440.0)
+	var data := PackedByteArray()
+	data.resize(frames)
+	for i in frames:
+		data[i] = 64 if i < frames / 2 else 192
+	var stream := AudioStreamWAV.new()
+	stream.format = AudioStreamWAV.FORMAT_8_BITS
+	stream.mix_rate = rate
+	stream.data = data
+	stream.loop_mode = AudioStreamWAV.LOOP_FORWARD
+	stream.loop_begin = 0 
+	stream.loop_end = frames
+	beep.stream = stream
+	beep.volume_db = -12
+	add_child(beep)
+
 func draw_screen() -> void:
 	for sy in 32:
 		for sx in 64:
@@ -119,6 +139,11 @@ func _physics_process(_delta: float) -> void:
 		delay_timer -= 1
 	if sound_timer > 0:
 		sound_timer -= 1 
+	
+	if sound_timer > 0 and not beep.playing:
+		beep.play()
+	elif sound_timer == 0 and beep.playing:
+		beep.stop()
 	
 	draw_screen()
 
