@@ -1,11 +1,34 @@
 extends Control
 
+var img: Image
+var tex: ImageTexture
+@onready var screen: TextureRect = $Screen
+
+var display := PackedByteArray()
+
 var memory := PackedByteArray()
 var V := PackedByteArray()  ## Registers from VO to VF
 var I := 0 ## This is the index register
 var pc := 0x200 ## pc stands for program counter, if you arent in the know. 
 
+func setup_screen() -> void:
+	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
+	img.fill(Color.BLACK)
+	img.set_pixel(0, 0, Color.WHITE)
+	img.set_pixel(5, 5, Color.WHITE)
+	tex = ImageTexture.create_from_image(img)
+	screen.texture = tex
+
+func draw_screen() -> void:
+	for sy in 32:
+		for sx in 64:
+			var on := display[sy * 64 + sx] == 1
+			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
+		tex.update(img)
+
 func _ready() -> void:
+	setup_screen()
+	display.resize(64 * 32)
 	var rom: PackedByteArray = FileAccess.get_file_as_bytes("res://roms/2-ibm-logo.ch8")
 	memory.resize(4096)
 	V.resize(16)
@@ -14,10 +37,55 @@ func _ready() -> void:
 	print("mem 200 = %02X" % memory[0x200])
 	print("mem 201 = %02X" % memory [0x201])
 	print("rom size = ", rom.size())
-	for n in 20:
+	print(V)
+	print("I = %03X" % I)
+
+func _process(_delta: float) -> void:
+	for i in 10:
 		step()
+	draw_screen()
 
 func step() -> void:
 	var opcode := (memory[pc] << 8) | memory[pc + 1]
 	pc += 2
-	print("%04X" % opcode)
+	
+	var first := (opcode & 0xF000) >> 12
+	var x := (opcode & 0x0F00) >> 8 
+	var y := (opcode & 0x00F0) >> 4
+	var n := opcode & 0x000F
+	var nn := opcode & 0x00FF
+	var nnn := opcode & 0x0FFF
+	
+	match first:
+		0x0:
+			print("TODO 00E0 clear")
+			display.fill(0)
+		0x1:
+			pc = nnn
+		0x6:
+			V[x] = nn 
+		0x7:
+			V[x] = (V[x] + nn) & 0xFF
+		0xA:
+			I = nnn
+		0xD:
+			print("TODO DXYN draw at V%X,V%X height %d" % [x, y, n])
+			var px := V[x] % 64
+			var py := V[y] % 32
+			V[0xF] = 0
+			for row in n:
+				var sprite_byte := memory[I + row]
+				for col in 8:
+					var bit := (sprite_byte >> (7 - col)) & 1
+					if bit == 0:
+						continue
+					var sx := px + col
+					var sy := py + row
+					if sx >= 64 or sy >= 32:
+						continue
+					var idx = sy * 64 + sx
+					if display[idx] == 1:
+						V[0xF] = 1
+					display[idx] = display[idx] ^ 1
+		_:
+			print("UNKNOWN %04X" % opcode)
