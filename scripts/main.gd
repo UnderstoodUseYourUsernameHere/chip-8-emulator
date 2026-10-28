@@ -1,7 +1,7 @@
 extends Control
 
 const INSTRUCTIONS_PER_FRAME := 11 ## This is about 660 instructions per sec if fps is 60hz
-const ROM_PATH := "res://roms/5-quirks.ch8"
+const ROM_PATH := "res://games/Brix.ch8"
 const FONT_START := 0x50
 const FONT := [
 	0xF0, 0x90, 0x90, 0x90, 0xF0, ## 0
@@ -146,6 +146,10 @@ func step() -> void:
 			if opcode == 0x00E0:
 				display.fill(0)
 			elif opcode == 0x00EE:
+				if stack.is_empty():
+					push_error("Return with empty stack at 0x%03X" % (pc- 2))
+					rom_loaded = false
+					return
 				pc = stack.pop_back()
 		0x1:
 			pc = nnn
@@ -216,6 +220,7 @@ func step() -> void:
 			var px := V[x] % 64
 			var py := V[y] % 32
 			V[0xF] = 0
+			drew_this_frame = true
 			for row in n:
 				var sprite_byte := memory[I + row]
 				for col in 8:
@@ -230,7 +235,7 @@ func step() -> void:
 					if display[idx] == 1:
 						V[0xF] = 1
 					display[idx] = display[idx] ^ 1
-					drew_this_frame = true
+
 		0xE:
 			match nn:
 				0x9E:
