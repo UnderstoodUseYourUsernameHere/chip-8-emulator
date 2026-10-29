@@ -53,6 +53,11 @@ var paused := false
 var last_opcode := 0 ## These ones are something im not sure of, hopefully they work as i think they will
 var last_pc := 0
 var status := ""
+var faulted := false
+var frame_blocked := false
+
+var breakpoints := {}
+var skip_breakpoint_pc := -1 
 
 var stack: Array[int] = []
 var delay_timer := 0
@@ -86,6 +91,11 @@ func load_rom(path: String) -> bool:
 	keys.fill(0)
 	keys_used.clear()
 	announced_any_key = false
+	faulted = false
+	frame_blocked = false
+	skip_breakpoint_pc = -1
+	last_pc = -1
+	last_opcode = -1
 	waiting_for_key = -1
 	I = 0
 	pc = 0x200
@@ -154,7 +164,42 @@ func _input(event: InputEvent) -> void:
 		KEY_ESCAPE:
 			rom_loaded = load_rom(current_rom)
 		KEY_P:
-			paused = not paused
+			toggle_pause()
+		KEY_N:
+			step_instruction()
+		KEY_M:
+			step_tick()
+
+func toggle_pause() -> void:
+	if not rom_loaded:
+		return
+	
+	if faulted:
+		status = "Gotta reset the ROM before resuming after a fault!!"
+		return
+		
+	paused = not paused
+	
+	if not paused:
+		status = ""
+		
+		if breakpoints.has(pc):
+			skip_breakpoint_pc = pc
+
+func step_instruction() -> void:
+	if not rom_loaded or not paused or faulted:
+		return
+		
+	drew_this_frame = false
+	frame_blocked = false
+	
+	step()
+
+func step_tick() -> void:
+	if not rom_loaded or not paused or faulted:
+		return
+	
+	run_frame()
 
 func draw_screen() -> void:
 	for sy in 32:
@@ -171,7 +216,7 @@ func note_key(k: int) -> void:
 	if keys_used.has(k):
 		return
 	keys_used[k] = true
-	print("ROM check CHIP8 key %X -> press keypad '%s" % [k, OS.get_keycode_string(KEYMAP[k])])
+	print("ROM check CHIP8 key %X -> press keypad '%s'" % [k, OS.get_keycode_string(KEYMAP[k])])
 
 func _ready() -> void:
 	setup_screen()
@@ -193,12 +238,36 @@ func _physics_process(_delta: float) -> void:
 	update_disassembly()
 
 func run_frame() -> void:
+	if not rom_loaded or faulted:
+		return
+	
 	drew_this_frame = false
-	for i in instructions_per_frame:
+	frame_blocked = false
+	
+	for instruction_number in range(instructions_per_frame):
+		var bypass_breakpoint := pc == skip_breakpoint_pc
+		skip_breakpoint_pc = -1
+		
+		if breakpoints.has(pc) and not bypass_breakpoint:
+			paused = true
+			status = "Breakpoint at  %03X" % pc
+			return
+		
 		step()
-		if drew_this_frame:
+		
+		if faulted:
+			return
+		
+		if frame_blocked:
 			break
 	tick_timers()
+
+func halt_machine(message: String) -> void:
+	status = message
+	faulted = true
+	paused = true
+	beep.stop()
+	push_warning(message)
 
 func tick_timers() -> void:
 	if delay_timer > 0:
@@ -217,42 +286,23 @@ func update_debug() -> void:
 	if not rom_loaded:
 		debug_label.text = "NO ROM LOADED!!!!\n" + status
 		return
-
-func update_disassembly() -> void:
-	if not rom_loaded:
-		disassembly_label.text = "NO PROGRAM"
-		return
 	
-	var text := "INSTRUCTIONS\n\n"
-	
-	for row in range(8):
-		var address := pc + row * 2
-		
-		if address < 0 or address + 1 >= memory.size():
-			break
-		
-		var opcode := (memory[address] << 8) | memory[address + 1]
-		var marker := ">" if row == 0 else " "
-		
-		text += "%s %03X %04X %s\n" % [
-			marker,
-			address,
-			opcode,
-			disassemble(opcode)
-		]
-	disassembly_label.text = text
-
 	var t := ""
 	t += "PAUSED\n" if paused else "RUNNING\n"
 	if status != "":
 		t += status + "\n"
 	t += "\n"
-	t += "PC %03X   I %03X\n" % [pc, I]
-	t += "LAST %03X: %04X\n" % [last_pc, last_opcode]
-	t += "DT %02X     ST %02X\n\n" % [delay_timer, sound_timer]
+	t += "PC %03X   I %03X\n" %  [pc, I]
+	
+	if last_pc >= 0:
+		t += "LAST %03X: %04X   %s\n" % [last_pc, last_opcode, disassemble(last_opcode)]
+	else:
+		t += "LAST: none\n"
+	
+	t += "DT %02X    ST %02X\n\n" % [delay_timer, sound_timer]
 	
 	for r in 16:
-		t += "V%X:%02X  " % [r, V[r]]
+		t += "V%X:%02X   " % [r, V[r]]
 		if r % 4 == 3:
 			t += "\n"
 	
@@ -265,6 +315,25 @@ func update_disassembly() -> void:
 	t += "USES: " + used_keys_text() + "\n"
 	
 	debug_label.text = t
+
+func update_disassembly() -> void:
+	if not rom_loaded:
+		disassembly_label.text = "NO PROGRAM!!"
+		return
+	
+	var text := "INSTRUCTIONS\n\n"
+	
+	for row in range(8):
+		var address := pc + row * 2
+		if address < 0 or address + 1 >= memory.size():
+			break
+		
+		var opcode := (memory[address] << 8) | memory[address + 1]
+		var marker := ">" if row == 0 else " "
+		
+		text += "%s %03X %04X %s\n" % [marker, address, opcode, disassemble(opcode)]
+		
+		disassembly_label.text = text
 
 func held_keys_text() -> String:
 	var text := ""
@@ -338,7 +407,7 @@ func disassemble(opcode: int) -> String:
 					return "SHL V%X, V%X" % [x, y]
 		0x9:
 			if n == 0:
-				return "SNE V%X, V%X" % nnn
+				return "SNE V%X, V%X" % [x, y]
 		0xA:
 			return "LD I, %03X" % nnn
 		0xB:
@@ -376,12 +445,11 @@ func disassemble(opcode: int) -> String:
 	return "UNKNOWN %04X" % opcode
 
 func step() -> void:
-	if not rom_loaded:
+	if not rom_loaded or faulted:
 		return
 	
 	if pc < 0 or pc + 1 >= memory.size():
-		push_error("Program counter outside memory: 0x%03X" % pc)
-		rom_loaded = false
+		halt_machine("PC outside memory: %04X" % pc)
 		return
 		
 	var opcode := (memory[pc] << 8) | memory[pc + 1]
@@ -402,9 +470,9 @@ func step() -> void:
 				display.fill(0)
 			elif opcode == 0x00EE:
 				if stack.is_empty():
-					push_error("Return with empty stack at 0x%03X" % (pc- 2))
-					rom_loaded = false
+					halt_machine("Return with empty stack at %03X" % last_pc)
 					return
+					
 				pc = stack.pop_back()
 		0x1:
 			pc = nnn
@@ -461,7 +529,7 @@ func step() -> void:
 					V[x] = (V[y] << 1) & 0xFF
 					V[0xF] = flag
 				_:
-					print("UNKNOWN %04X" % opcode)
+					halt_machine("Unknown opcode %04X at %03X" % [opcode, last_pc])
 		0x9:
 			if V[x] != V[y]:
 				pc += 2
@@ -501,7 +569,7 @@ func step() -> void:
 					if keys[V[x] & 0xF] == 0:
 						pc += 2
 				_:
-					print("UNKNOWN %04X" % opcode)
+					halt_machine("Unknown opcode %04X at %03X" % [opcode, last_pc])
 		0xF:
 			match nn:
 				0x0A:
@@ -543,4 +611,4 @@ func step() -> void:
 						V[i] = memory[I]
 						I += 1
 				_:
-					print("UNKNOWN %04X" % opcode)
+					halt_machine("Unknown opcode %04X at %03X" % [opcode, last_pc])
