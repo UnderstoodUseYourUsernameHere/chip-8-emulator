@@ -2,6 +2,7 @@ extends Control
 
 @onready var rom_picker: OptionButton = $%RomPicker
 @onready var screen: TextureRect = $%Screen
+@onready var debug_label: Label = $%DebugLabel
 
 const FONT_START := 0x50
 const FONT := [
@@ -114,6 +115,7 @@ func setup_screen() -> void:
 	img.fill(Color.BLACK)
 	tex = ImageTexture.create_from_image(img)
 	screen.texture = tex
+	screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
 
 func setup_sound() -> void:
@@ -158,7 +160,6 @@ func draw_screen() -> void:
 		for sx in 64:
 			var on := display[sy * 64 + sx] == 1
 			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
-	screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	tex.update(img)
 
 func read_keys() -> void:
@@ -183,6 +184,7 @@ func _physics_process(_delta: float) -> void:
 		run_frame()
 	update_sound()
 	draw_screen()
+	update_debug()
 
 func run_frame() -> void:
 	drew_this_frame = false
@@ -204,6 +206,54 @@ func update_sound() -> void:
 		beep.play()
 	elif not should_beep and beep.playing:
 		beep.stop()
+
+func update_debug() -> void:
+	if not rom_loaded:
+		debug_label.text = "NO ROM LOADED!!!!\n" + status
+		return
+	
+	var t := ""
+	t += "PAUSED\n" if paused else "RUNNING\n"
+	if status != "":
+		t += status + "\n"
+	t += "\n"
+	t += "PC %03X   I %03X\n" % [pc, I]
+	t += "LAST %03X: %04X\n" % [last_pc, last_opcode]
+	t += "DT %02X     ST %02X\n\n" % [delay_timer, sound_timer]
+	
+	for r in 16:
+		t += "V%X:%02X  " % [r, V[r]]
+		if r % 4 == 3:
+			t += "\n"
+	
+	t += "\nSTACK(%d):" % stack.size()
+	for addr in stack:
+		t += " %03X" % addr
+	t += "\n"
+	
+	t += "HELD: " + held_keys_text() + "\n"
+	t += "USES: " + used_keys_text() + "\n"
+	
+	debug_label.text = t
+
+func held_keys_text() -> String:
+	var text := ""
+	for k in 16:
+		if keys[k] == 1:
+			text += "%X " % k
+	if text == "":
+		return "-"
+	return text 
+
+func used_keys_text() -> String:
+	var used: Array = keys_used.keys()
+	used.sort()
+	if used.is_empty():
+		return "-"
+	var text := ""
+	for k in used:
+		text += "%X " % k
+	return text
 
 func step() -> void:
 	if not rom_loaded:
