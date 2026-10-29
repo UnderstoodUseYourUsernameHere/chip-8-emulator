@@ -3,6 +3,7 @@ extends Control
 @onready var rom_picker: OptionButton = $%RomPicker
 @onready var screen: TextureRect = $%Screen
 @onready var debug_label: Label = $%DebugLabel
+@onready var disassembly_label: Label = $%DisassemblyLabel
 
 const FONT_START := 0x50
 const FONT := [
@@ -177,6 +178,10 @@ func _ready() -> void:
 	setup_sound()
 	setup_picker()
 	_on_rom_selected(0)
+	assert(disassemble(0x600C) == "LD V0, 0C")
+	assert(disassemble(0x8124) == "ADD V1, V2")
+	assert(disassemble(0x00E0) == "CLS")
+	assert(disassemble(0xF533) == "LD B, V5")
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
@@ -185,6 +190,7 @@ func _physics_process(_delta: float) -> void:
 	update_sound()
 	draw_screen()
 	update_debug()
+	update_disassembly()
 
 func run_frame() -> void:
 	drew_this_frame = false
@@ -211,7 +217,31 @@ func update_debug() -> void:
 	if not rom_loaded:
 		debug_label.text = "NO ROM LOADED!!!!\n" + status
 		return
+
+func update_disassembly() -> void:
+	if not rom_loaded:
+		disassembly_label.text = "NO PROGRAM"
+		return
 	
+	var text := "INSTRUCTIONS\n\n"
+	
+	for row in range(8):
+		var address := pc + row * 2
+		
+		if address < 0 or address + 1 >= memory.size():
+			break
+		
+		var opcode := (memory[address] << 8) | memory[address + 1]
+		var marker := ">" if row == 0 else " "
+		
+		text += "%s %03X %04X %s\n" % [
+			marker,
+			address,
+			opcode,
+			disassemble(opcode)
+		]
+	disassembly_label.text = text
+
 	var t := ""
 	t += "PAUSED\n" if paused else "RUNNING\n"
 	if status != "":
@@ -254,6 +284,96 @@ func used_keys_text() -> String:
 	for k in used:
 		text += "%X " % k
 	return text
+
+func disassemble(opcode: int) -> String:
+	var first := (opcode & 0xF000) >> 12
+	var x := (opcode & 0x0F00) >> 8
+	var y := (opcode & 0x00F0) >> 4
+	var n := opcode & 0x000F
+	var nn := opcode & 0x00FF
+	var nnn := opcode & 0x0FFF
+	
+	match first:
+		0x0:
+			if opcode == 0x00E0:
+				return "CLS"
+			if opcode == 0x00EE:
+				return "RET"
+			return "SYS %03X" % nnn
+		
+		0x1:
+			return "JP %03X" % nnn
+		0x2:
+			return "CALL %03X" % nnn
+		0x3:
+			return "SE V%X, %02X" % [x, nn]
+		0x4:
+			return "SNE V%X, %02X" % [x, nn]
+		0x5:
+			if n == 0:
+				return "SE V%X, V%X" % [x, y]
+		0x6:
+			return "LD V%X, %02X" % [x, nn]
+		0x7:
+			return "ADD V%X, %02X" % [x, nn]
+		0x8:
+			match n:
+				0x0:
+					return "LD V%X, V%X" % [x, y]
+				0x1:
+					return 'OR V%X, V%X' % [x, y]
+				0x2:
+					return "AND V%X, V%X" % [x, y]
+				0x3:
+					return "XOR V%X, V%X" % [x, y]
+				0x4:
+					return "ADD V%X, V%X" % [x, y]
+				0x5: 
+					return "SUB V%X, V%X" % [x, y]
+				0x6:
+					return "SHR V%X, V%X" % [x, y]
+				0x7:
+					return "SUBN V%X, V%X" % [x, y]
+				0xE:
+					return "SHL V%X, V%X" % [x, y]
+		0x9:
+			if n == 0:
+				return "SNE V%X, V%X" % nnn
+		0xA:
+			return "LD I, %03X" % nnn
+		0xB:
+			return "JP OFFSET, %03X" % nnn
+		0xC:
+			return "RND V%X, %02X" % [x, nn]
+		0xD:
+			return "DRW V%X, V%X, %X" % [x, y, n]
+		0xE:
+			match nn:
+				0x9E:
+					return "SKP V%X" % x
+				0xA1:
+					return "SKNP V%X" % x
+		0xF:
+			match nn:
+				0x07:
+					return "LD V%X, DT" % x
+				0x0A:
+					return "LD V%X, K"  % x
+				0x15:
+					return "LD DT, V%X" % x
+				0x18:
+					return "LD ST, V%X" % x
+				0x1E:
+					return "ADD I, V%X" % x
+				0x29:
+					return "LD F, V%X" % x
+				0x33:
+					return "LD B, V%X" % x
+				0x55:
+					return "LD [I], V%X" % x
+				0x65:
+					return "LD V%X, [I]" % x
+	return "UNKNOWN %04X" % opcode
 
 func step() -> void:
 	if not rom_loaded:
