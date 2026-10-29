@@ -58,3 +58,8 @@ offset_left = -4.0
 offset_top = 97.0
 offset_right = 36.0
 offset_bottom = 120.0
+
+[node name="BreakpointEdit" type="LineEdit" parent="HBoxContainer/VBoxContainer" unique_id=456155297]
+unique_name_in_owner = true
+layout_mode = 2
+placeholder_text = "Hex breakpoint, e.g 204"

@@ -4,6 +4,7 @@ extends Control
 @onready var screen: TextureRect = $%Screen
 @onready var debug_label: Label = $%DebugLabel
 @onready var disassembly_label: Label = $%DisassemblyLabel
+@onready var breakpoint_edit: LineEdit = $%BreakpointEdit
 
 const FONT_START := 0x50
 const FONT := [
@@ -68,6 +69,7 @@ var img: Image
 var tex: ImageTexture
 
 var display := PackedByteArray()
+var display_wait_enabled := true
 var drew_this_frame := false
 
 
@@ -160,6 +162,8 @@ func _on_rom_selected(index: int) -> void:
 func _input(event: InputEvent) -> void:
 	if not (event is InputEventKey) or not event.pressed or event.echo:
 		return
+	if breakpoint_edit.has_focus():
+		return
 	match event.keycode:
 		KEY_ESCAPE:
 			rom_loaded = load_rom(current_rom)
@@ -170,6 +174,57 @@ func _input(event: InputEvent) -> void:
 		KEY_M:
 			step_tick()
 
+func parse_breakpoint_address(raw_text: String) -> int:
+	var cleaned := raw_text.strip_edges().to_upper()
+	
+	if cleaned.begins_with("OX"):
+		cleaned = cleaned.substr(2)
+	
+	if cleaned.is_empty() or cleaned.length() > 3:
+		return -1
+	
+	if cleaned.begins_with("+") or cleaned.begins_with("-"): ## Breakpoints CANT have these symbols in the front!
+		return -1
+	
+	if not cleaned.is_valid_hex_number():
+		return -1
+	
+	var address := cleaned.hex_to_int()
+	
+	if address < 0 or address + 1 >= memory.size():
+		return -1
+	
+	return address
+
+func _on_breakpoint_submitted(raw_text: String) -> void:
+	var address := parse_breakpoint_address(raw_text)
+	
+	if address < 0:
+		status = "Invalid breakpoint address."
+	else:
+		if breakpoints.has(address):
+			breakpoints.erase(address)
+			status = "Removed breakpoint at %03X" % address
+		else:
+			breakpoints[address] = true
+			status = "Added breakpoint at %03X" % address
+	breakpoint_edit.clear()
+	breakpoint_edit.release_focus()
+
+func breakpoints_text() -> String:
+	var addresses: Array = breakpoints.keys()
+	addresses.sort()
+	
+	if addresses.is_empty():
+		return "-"
+	
+	var text := ""
+	
+	for address in addresses:
+		text += "%03X " % int(address)
+	
+	return text 
+
 func toggle_pause() -> void:
 	if not rom_loaded:
 		return
@@ -178,13 +233,17 @@ func toggle_pause() -> void:
 		status = "Gotta reset the ROM before resuming after a fault!!"
 		return
 		
-	paused = not paused
-	
 	if not paused:
-		status = ""
-		
-		if breakpoints.has(pc):
-			skip_breakpoint_pc = pc
+		paused = true
+		return
+	
+	var was_stopped_at_breakpoint := status.begins_with("Breakpoint at")
+	
+	paused = false
+	status = ""
+	
+	if was_stopped_at_breakpoint and breakpoints.has(pc):
+		skip_breakpoint_pc = pc
 
 func step_instruction() -> void:
 	if not rom_loaded or not paused or faulted:
@@ -199,6 +258,9 @@ func step_tick() -> void:
 	if not rom_loaded or not paused or faulted:
 		return
 	
+	if breakpoints.has(pc):
+		skip_breakpoint_pc = pc
+	
 	run_frame()
 
 func draw_screen() -> void:
@@ -209,6 +271,10 @@ func draw_screen() -> void:
 	tex.update(img)
 
 func read_keys() -> void:
+	if breakpoint_edit.has_focus():
+		keys.fill(0)
+		return
+	
 	for k in 16:
 		keys[k] = 1 if Input.is_physical_key_pressed(KEYMAP[k]) else 0
 
@@ -223,10 +289,7 @@ func _ready() -> void:
 	setup_sound()
 	setup_picker()
 	_on_rom_selected(0)
-	assert(disassemble(0x600C) == "LD V0, 0C")
-	assert(disassemble(0x8124) == "ADD V1, V2")
-	assert(disassemble(0x00E0) == "CLS")
-	assert(disassemble(0xF533) == "LD B, V5")
+	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
@@ -314,6 +377,7 @@ func update_debug() -> void:
 	t += "HELD: " + held_keys_text() + "\n"
 	t += "USES: " + used_keys_text() + "\n"
 	
+	t += "BREAKPOINTS: " + breakpoints_text() + "\n"
 	debug_label.text = t
 
 func update_disassembly() -> void:
@@ -453,6 +517,9 @@ func step() -> void:
 		return
 		
 	var opcode := (memory[pc] << 8) | memory[pc + 1]
+	if display_wait_enabled and (opcode & 0xF000) == 0xD000 and drew_this_frame:
+		frame_blocked = true 
+		return
 	last_pc = pc
 	last_opcode = opcode
 	pc += 2
