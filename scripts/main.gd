@@ -31,6 +31,8 @@ const KEYMAP := [
 ]
 var keys := PackedByteArray()
 var waiting_for_key := -1
+var keys_used := {}
+var announced_any_key := false
 
 const ROMS := {
 	"IBM Logo": "res://roms/2-ibm-logo.ch8",
@@ -55,6 +57,9 @@ var tex: ImageTexture
 
 var display := PackedByteArray()
 var drew_this_frame := false
+var glow := PackedFloat32Array() 
+var glow_decay := 0.10
+
 
 var beep := AudioStreamPlayer.new()
 
@@ -73,6 +78,8 @@ func load_rom(path: String) -> bool:
 	stack.clear()
 	keys.resize(16) 
 	keys.fill(0)
+	keys_used.clear()
+	announced_any_key = false
 	waiting_for_key = -1
 	I = 0
 	pc = 0x200
@@ -103,6 +110,8 @@ func setup_screen() -> void:
 	img.fill(Color.BLACK)
 	tex = ImageTexture.create_from_image(img)
 	screen.texture = tex
+	glow.resize(64 * 32)
+	glow.fill(0)
 
 func setup_sound() -> void:
 	var rate := 22050
@@ -144,13 +153,24 @@ func _input(event: InputEvent) -> void:
 func draw_screen() -> void:
 	for sy in 32:
 		for sx in 64:
-			var on := display[sy * 64 + sx] == 1
-			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
+			var idx := sy * 64 + sx
+			if display[idx] == 1:
+				glow[idx] = 1.0
+			else:
+				glow[idx] *= glow_decay
+			var b := glow[idx]
+			img.set_pixel(sx, sy, Color(b, b, b))
 	tex.update(img)
 
 func read_keys() -> void:
 	for k in 16:
 		keys[k] = 1 if Input.is_physical_key_pressed(KEYMAP[k]) else 0
+
+func note_key(k: int) -> void:
+	if keys_used.has(k):
+		return
+	keys_used[k] = true
+	print("ROM check CHIP8 key %X -> press keypad '%s" % [k, OS.get_keycode_string(KEYMAP[k])])
 
 func _ready() -> void:
 	setup_screen()
@@ -160,21 +180,28 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
-	if rom_loaded and not paused:
+	if not rom_loaded:
+		return
+		
+	if not paused:
 		drew_this_frame = false
 		for i in instructions_per_frame:
 			step()
 			if drew_this_frame:
 				break
+			
 		if delay_timer > 0:
 			delay_timer -= 1
 		if sound_timer > 0:
 			sound_timer -= 1
-		if sound_timer > 0 and not beep.playing:
+			
+		var should_beep := sound_timer > 0 and not paused
+		if should_beep and not beep.playing:
 			beep.play()
-		elif sound_timer == 0 and beep.playing:
+		elif not should_beep and beep.playing:
 			beep.stop()
 		draw_screen()
+
 func step() -> void:
 	if not rom_loaded:
 		return
@@ -290,6 +317,7 @@ func step() -> void:
 					display[idx] = display[idx] ^ 1
 
 		0xE:
+			note_key(V[x] & 0xF)
 			match nn:
 				0x9E:
 					if keys[V[x] & 0xF] == 1:
@@ -302,6 +330,9 @@ func step() -> void:
 		0xF:
 			match nn:
 				0x0A:
+					if announced_any_key == false:
+						announced_any_key = true
+						print("Waiting for keys (FX0A)")
 					if waiting_for_key == -1:
 						for i in range(16):
 							if keys[i] == 1:
