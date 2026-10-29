@@ -1,7 +1,7 @@
 extends Control
 
-@onready var rom_picker: OptionButton = $HBoxContainer/VBoxContainer/RomPicker
-@onready var screen: TextureRect = $HBoxContainer/Screen
+@onready var rom_picker: OptionButton = $%RomPicker
+@onready var screen: TextureRect = $%Screen
 
 const FONT_START := 0x50
 const FONT := [
@@ -40,12 +40,17 @@ const ROMS := {
 	"Quirks Test": "res://roms/5-quirks.ch8",
 	"Keypad Test": "res://roms/6-keypad.ch8",
 	"Brix": "res://games/Brix.ch8",
+	"Flags Test": "res://roms/4-flags.ch8",
+	"Beep Test": "res://roms/7-beep.ch8",
 	"Cave": "res://games/Cave.ch8",
 }
 
 var instructions_per_frame := 11
 var current_rom := ""
 var paused := false
+var last_opcode := 0 ## These ones are something im not sure of, hopefully they work as i think they will
+var last_pc := 0
+var status := ""
 
 var stack: Array[int] = []
 var delay_timer := 0
@@ -57,8 +62,6 @@ var tex: ImageTexture
 
 var display := PackedByteArray()
 var drew_this_frame := false
-var glow := PackedFloat32Array() 
-var glow_decay := 0.10
 
 
 var beep := AudioStreamPlayer.new()
@@ -71,6 +74,7 @@ var pc := 0x200 ## pc stands for program counter, if you arent in the know.
 func load_rom(path: String) -> bool:
 	memory.resize(4096) ## Resets everything to a clean slate
 	memory.fill(0)
+	status = ""
 	V.resize(16)
 	V.fill(0)
 	display.resize(64 * 32)
@@ -110,8 +114,7 @@ func setup_screen() -> void:
 	img.fill(Color.BLACK)
 	tex = ImageTexture.create_from_image(img)
 	screen.texture = tex
-	glow.resize(64 * 32)
-	glow.fill(0)
+
 
 func setup_sound() -> void:
 	var rate := 22050
@@ -153,13 +156,9 @@ func _input(event: InputEvent) -> void:
 func draw_screen() -> void:
 	for sy in 32:
 		for sx in 64:
-			var idx := sy * 64 + sx
-			if display[idx] == 1:
-				glow[idx] = 1.0
-			else:
-				glow[idx] *= glow_decay
-			var b := glow[idx]
-			img.set_pixel(sx, sy, Color(b, b, b))
+			var on := display[sy * 64 + sx] == 1
+			img.set_pixel(sx, sy, Color.WHITE if on else Color.BLACK)
+	screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 	tex.update(img)
 
 func read_keys() -> void:
@@ -180,27 +179,31 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
-	if not rom_loaded:
-		return
-		
-	if not paused:
-		drew_this_frame = false
-		for i in instructions_per_frame:
-			step()
-			if drew_this_frame:
-				break
-			
-		if delay_timer > 0:
-			delay_timer -= 1
-		if sound_timer > 0:
-			sound_timer -= 1
-			
-		var should_beep := sound_timer > 0 and not paused
-		if should_beep and not beep.playing:
-			beep.play()
-		elif not should_beep and beep.playing:
-			beep.stop()
-		draw_screen()
+	if rom_loaded and not paused:
+		run_frame()
+	update_sound()
+	draw_screen()
+
+func run_frame() -> void:
+	drew_this_frame = false
+	for i in instructions_per_frame:
+		step()
+		if drew_this_frame:
+			break
+	tick_timers()
+
+func tick_timers() -> void:
+	if delay_timer > 0:
+		delay_timer -= 1
+	if sound_timer > 0:
+		sound_timer -= 1
+
+func update_sound() -> void:
+	var should_beep := sound_timer > 0 and not paused and rom_loaded
+	if should_beep and not beep.playing:
+		beep.play()
+	elif not should_beep and beep.playing:
+		beep.stop()
 
 func step() -> void:
 	if not rom_loaded:
@@ -212,6 +215,8 @@ func step() -> void:
 		return
 		
 	var opcode := (memory[pc] << 8) | memory[pc + 1]
+	last_pc = pc
+	last_opcode = opcode
 	pc += 2
 	
 	var first := (opcode & 0xF000) >> 12
