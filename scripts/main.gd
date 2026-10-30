@@ -52,6 +52,9 @@ var status := ""
 var faulted := false
 var frame_blocked := false
 
+var trace: Array[int] = []
+const TRACE_MAX := 32
+
 var breakpoints := {}
 var skip_breakpoint_pc := -1 
 var stopped_breakpoint_pc := -1
@@ -471,6 +474,7 @@ func update_debug() -> void:
 	
 	%PauseButton.text = "Resume" if paused else "Pause"
 	
+	
 	var t := ""
 	t += "PAUSED\n" if paused else "RUNNING\n"
 	if status != "":
@@ -499,6 +503,13 @@ func update_debug() -> void:
 	t += "USES: " + used_keys_text() + "\n"
 	
 	t += "BREAKPOINTS: " + breakpoints_text() + "\n"
+	
+	t += "\nTRACE (oldest -> newest): \n"
+	for i in range(maxi(0, trace.size() - 10), trace.size()):
+		var tpc := trace[i] >> 16
+		var top := trace[i] & 0xFFFF
+		t += "%03X %04X %s\n" % [tpc, top, disassemble(top)]
+	
 	debug_label.text = t
 
 func update_disassembly() -> void:
@@ -643,6 +654,9 @@ func step() -> void:
 		return
 	last_pc = pc
 	last_opcode = opcode
+	trace.append((last_pc << 16) | opcode)
+	if trace.size() > TRACE_MAX:
+		trace.pop_front()
 	pc += 2
 	
 	var first := (opcode & 0xF000) >> 12

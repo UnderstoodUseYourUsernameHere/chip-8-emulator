@@ -10,18 +10,18 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_right = 212.0
 grow_horizontal = 2
 grow_vertical = 2
 theme = ExtResource("1_sugp2")
 script = ExtResource("1_o5qli")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=880550542]
-custom_minimum_size = Vector2(1000, 640)
+custom_minimum_size = Vector2(0, 640)
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+offset_right = 28.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_constants/margin_left = 12
@@ -91,7 +91,6 @@ current_tab = 0
 
 [node name="CPU" type="ScrollContainer" parent="MarginContainer/HBoxContainer/Debugger" unique_id=1539096709]
 custom_minimum_size = Vector2(300, 0)
-custom_maximum_size = Vector2(335, 346.34)
 layout_mode = 2
 metadata/_tab_index = 0
 
@@ -131,12 +130,11 @@ layout_mode = 2
 
 [node name="HelpOverlay" type="PanelContainer" parent="." unique_id=178006775]
 unique_name_in_owner = true
+visible = false
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
-offset_left = -34.0
-offset_right = -34.0
 grow_horizontal = 2
 grow_vertical = 2
 theme_override_styles/panel = ExtResource("3_jyhfs")
