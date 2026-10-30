@@ -199,6 +199,7 @@ Pick a cartridge down there and play!
   P   pause / resume     Esc  reset cartridge
   N   step 1 instruction M    step 1 frame
   O   open a ROM file    F1   this screen
+  B    hold to rewind recent gameplay! 
   Drag a .ch8 file onto the window to play it."
 fit_content = true
 

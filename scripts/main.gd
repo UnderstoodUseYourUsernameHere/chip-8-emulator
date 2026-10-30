@@ -46,6 +46,13 @@ const ROM_FOLDERS := ["res://roms", "res://games"]
 var rom_names: Array[String] = []
 var rom_paths := {}
 
+const REWIND_MAX_TICKS := 600
+
+var rewind_history: Array[Dictionary] = []
+var rewinding := false
+
+var rng := RandomNumberGenerator.new()
+
 var instructions_per_frame := 11
 var current_rom := ""
 var paused := false
@@ -124,6 +131,10 @@ func load_rom(path: String) -> bool:
 	display.resize(64 * 32)
 	display.fill(0)
 	stack.clear()
+	rewind_history.clear()
+	rewinding = false
+	trace.clear()
+	rng.randomize()
 	keys.resize(16) 
 	keys.fill(0)
 	keys_used.clear()
@@ -242,6 +253,79 @@ func setup_open_dialog() -> void:
 	add_child(open_dialog)
 	get_window().files_dropped.connect(_on_files_dropped)
 	%OpenButton.pressed.connect(open_rom_dialog)
+
+func capture_rewind_state() -> Dictionary:
+	return {
+		"memory": memory.duplicate(),
+		"registers": V.duplicate(),
+		"display": display.duplicate(),
+		"stack": stack.duplicate(),
+		
+		"pc": pc,
+		"I": I,
+		"delay_timer": delay_timer,
+		"sound_timer": sound_timer,
+		"waiting_for_key": waiting_for_key,
+		
+		"last_pc": last_pc,
+		"last_opcode": last_opcode,
+		"trace": trace.duplicate(),
+		
+		"keys_used": keys_used.duplicate(),
+		"announced_any_key": announced_any_key,
+		
+		"rng_seed": rng.seed,
+		"rng_state": rng.state,
+		
+		"speed": instructions_per_frame,
+		"display_wait": display_wait_enabled,
+	}
+
+func restore_rewind_state(snapshot: Dictionary) -> void:
+	memory = snapshot["memory"].duplicate()
+	V = snapshot["registers"].duplicate()
+	display = snapshot["display"].duplicate()
+	
+	stack.assign(snapshot["stack"])
+	trace.assign(snapshot["trace"])
+	
+	pc = snapshot["pc"]
+	I = snapshot["I"]
+	
+	delay_timer = snapshot["delay_timer"]
+	sound_timer = snapshot["sound_timer"]
+	waiting_for_key = snapshot["waiting_for_key"]
+	
+	last_pc = snapshot["last_pc"]
+	last_opcode = snapshot["last_opcode"]
+	
+	keys_used = snapshot["keys_used"]
+	announced_any_key = snapshot["announced_any_key"]
+	
+	rng.seed = snapshot["rng_seed"]
+	rng.state = snapshot["rng_state"]
+	
+	instructions_per_frame = snapshot["speed"]
+	display_wait_enabled = snapshot["display_wait"]
+	
+	speed_slider.set_value_no_signal(instructions_per_frame)
+	wait_check.set_pressed_no_signal(display_wait_enabled)
+	
+	faulted = false
+	drew_this_frame = false
+	frame_blocked = false
+	
+	skip_breakpoint_pc = -1
+	stopped_breakpoint_pc = -1
+	status = ""
+	
+	beep.stop()
+
+func remember_rewind_state() -> void:
+	rewind_history.append(capture_rewind_state())
+	
+	if rewind_history.size() > REWIND_MAX_TICKS:
+		rewind_history.pop_front()
 
 func update_controls_label() -> void:
 	if not rom_loaded:
@@ -500,8 +584,22 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	read_keys()
-	if rom_loaded and not paused:
+	
+	rewinding = (
+		rom_loaded
+		and not help_overlay.visible
+		and not breakpoint_edit.has_focus()
+		and Input.is_physical_key_pressed(KEY_B)
+	)
+	
+	if rewinding:
+		if not rewind_history.is_empty():
+			var snapshot: Dictionary = rewind_history.pop_back()
+			restore_rewind_state(snapshot)
+	elif rom_loaded and not paused and not faulted:
+		remember_rewind_state()
 		run_frame()
+	
 	update_sound()
 	draw_screen()
 	update_debug()
@@ -558,7 +656,12 @@ func show_help(show: bool) -> void:
 		paused = paused_before_help
 
 func update_sound() -> void:
-	var should_beep := sound_timer > 0 and not paused and rom_loaded
+	var should_beep := (
+		sound_timer > 0
+		and not paused
+		and not rom_loaded
+		and not rewinding
+	)
 	if should_beep and not beep.playing:
 		beep.play()
 	elif not should_beep and beep.playing:
@@ -573,7 +676,10 @@ func update_debug() -> void:
 	
 	
 	var t := ""
-	t += "PAUSED\n" if paused else "RUNNING\n"
+	if rewinding:
+		t += "REWINDING\n"
+	else:
+		t += "PAUSED\n" if paused else "RUNNING\n"
 	if status != "":
 		t += status + "\n"
 	t += "\n"
@@ -837,7 +943,7 @@ func step() -> void:
 		0xB:
 			pc = nnn + V[0]
 		0xC:
-			V[x] = randi_range(0, 255) & nn
+			V[x] = rng.randi_range(0, 255) & nn
 		0xD:
 			var px := V[x] % 64
 			var py := V[y] % 32
