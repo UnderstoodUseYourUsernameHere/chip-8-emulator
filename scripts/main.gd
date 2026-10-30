@@ -6,6 +6,7 @@ extends Control
 @onready var disassembly_label: Label = $%DisassemblyLabel
 @onready var breakpoint_edit: LineEdit = $%BreakpointEdit
 @onready var help_overlay: PanelContainer = $%HelpOverlay
+@onready var memory_label: Label = $%MemoryLabel
 
 const FONT_START := 0x50
 const FONT := [
@@ -79,6 +80,37 @@ var memory := PackedByteArray()
 var V := PackedByteArray()  ## Registers from VO to VF
 var I := 0 ## This is the index register
 var pc := 0x200 ## pc stands for program counter, if you arent in the know. 
+
+var mem_mode := 0
+var mem_base := 0x200
+const MEM_ROWS := 8
+const MEM_COLS := 16
+
+func update_memory_view() -> void:
+	if not rom_loaded:
+		memory_label.text = "NO MEMORY"
+		return
+	
+	var target := -1
+	if mem_mode == 0: target = pc
+	elif mem_mode == 1: target = I
+	if target >= 0:
+		mem_base = (target - target % MEM_COLS) - 3 * MEM_COLS
+	mem_base = clampi(mem_base, 0, memory.size() - MEM_ROWS * MEM_COLS)
+	
+	var modes := ["FOLLOW PC", "FOLLOW I", "MANUAL"]
+	var t := "MEMORY [%s] H=mode [ ]=page\n\n" % modes[mem_mode]
+	for r in MEM_ROWS:
+		var row := mem_base + r * MEM_COLS
+		t += "%03X:" % row
+		for c in MEM_COLS:
+			var a := row + c
+			var mark := " "
+			if a == pc or a == pc + 1: mark = ">"
+			elif a == I: mark = "*"
+			t += "%s%02X" % [mark, memory[a]]
+		t += "\n"
+	memory_label.text = t
 
 func load_rom(path: String) -> bool:
 	memory.resize(4096) ## Resets everything to a clean slate
@@ -268,6 +300,17 @@ func _input(event: InputEvent) -> void:
 		KEY_M:
 			step_tick()
 		
+		KEY_H:
+			mem_mode = (mem_mode + 1) % 3
+		
+		KEY_BRACKETLEFT:
+			mem_mode = 2
+			mem_base -= MEM_ROWS * MEM_COLS
+		
+		KEY_BRACKETRIGHT:
+			mem_mode = 2
+			mem_base += MEM_ROWS * MEM_COLS
+		
 		KEY_F1:
 			show_help(true)
 		
@@ -411,6 +454,7 @@ func _physics_process(_delta: float) -> void:
 	draw_screen()
 	update_debug()
 	update_disassembly()
+	update_memory_view()
 
 func run_frame() -> void:
 	if not rom_loaded or faulted:
