@@ -70,10 +70,24 @@ layout_mode = 2
 [node name="ResetButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=212379595]
 unique_name_in_owner = true
 layout_mode = 2
+text = "Reset"
 
 [node name="HelpButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=769979553]
 unique_name_in_owner = true
 layout_mode = 2
+text = "Help!"
+
+[node name="SpeedSlider" type="HSlider" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=996589957]
+custom_minimum_size = Vector2(120, 0)
+layout_mode = 2
+offset_transform_position = Vector2(0, 50)
+min_value = 1.0
+max_value = 40.0
+value = 1.0
+
+[node name="WaitCheck" type="CheckBox" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=345158805]
+layout_mode = 2
+text = "Authentic draw spd."
 
 [node name="ControlsPanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/LeftColumn" unique_id=1374951924]
 layout_mode = 2

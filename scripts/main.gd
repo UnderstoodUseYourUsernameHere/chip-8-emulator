@@ -186,6 +186,14 @@ func setup_toolbar() -> void:
 	for b in [%PauseButton, %ResetButton, %OpenButton, %HelpButton]:
 		b.focus_mode = Control.FOCUS_NONE
 
+func setup_settings() -> void:
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.value = instructions_per_frame
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.value_changed.connect(func(v): instructions_per_frame = int(v))
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.button_pressed = display_wait_enabled
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.toggled.connect(func(on): display_wait_enabled = on)
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.focus_mode = Control.FOCUS_NONE
+	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.focus_mode = Control.FOCUS_NONE
+
 func setup_sound() -> void:
 	var rate := 22050
 	var frames := int(rate / 440.0)
@@ -442,6 +450,7 @@ func _ready() -> void:
 	setup_sound()
 	setup_picker()
 	setup_open_dialog()
+	setup_settings()
 	setup_toolbar()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
