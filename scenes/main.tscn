@@ -29,19 +29,21 @@ theme_override_constants/margin_top = 12
 theme_override_constants/margin_right = 12
 theme_override_constants/margin_bottom = 12
 
-[node name="HBoxContainer" type="HBoxContainer" parent="MarginContainer" unique_id=1376485491]
-custom_minimum_size = Vector2(200, 0)
-layout_mode = 2
-theme_override_constants/separation = 12
-
-[node name="LeftColumn" type="VBoxContainer" parent="MarginContainer/HBoxContainer" unique_id=1997709481]
+[node name="MainColumn" type="VBoxContainer" parent="MarginContainer" unique_id=729651060]
 layout_mode = 2
 
-[node name="ScreenPanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/LeftColumn" unique_id=1930301835]
+[node name="GameCenter" type="CenterContainer" parent="MarginContainer/MainColumn" unique_id=1767439499]
+layout_mode = 2
+size_flags_vertical = 3
+
+[node name="LeftColumn" type="VBoxContainer" parent="MarginContainer/MainColumn/GameCenter" unique_id=1997709481]
+layout_mode = 2
+
+[node name="ScreenPanel" type="PanelContainer" parent="MarginContainer/MainColumn/GameCenter/LeftColumn" unique_id=1930301835]
 custom_minimum_size = Vector2(640, 320)
 layout_mode = 2
 
-[node name="Screen" type="TextureRect" parent="MarginContainer/HBoxContainer/LeftColumn/ScreenPanel" unique_id=1743842365]
+[node name="Screen" type="TextureRect" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/ScreenPanel" unique_id=1743842365]
 unique_name_in_owner = true
 texture_filter = 1
 custom_minimum_size = Vector2(640, 320)
@@ -49,35 +51,43 @@ layout_mode = 2
 expand_mode = 1
 stretch_mode = 5
 
-[node name="Toolbar" type="HBoxContainer" parent="MarginContainer/HBoxContainer/LeftColumn" unique_id=518019700]
+[node name="Toolbar" type="HBoxContainer" parent="MarginContainer/MainColumn/GameCenter/LeftColumn" unique_id=518019700]
 layout_mode = 2
 
-[node name="RomPicker" type="OptionButton" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=1244593718]
+[node name="RomPicker" type="OptionButton" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/Toolbar" unique_id=1244593718]
 unique_name_in_owner = true
 layout_mode = 2
 size_flags_horizontal = 3
 fit_to_longest_item = false
 
-[node name="OpenButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=1044996986]
+[node name="OpenButton" type="Button" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/Toolbar" unique_id=1044996986]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Open ROM"
 
-[node name="PauseButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=57030283]
+[node name="PauseButton" type="Button" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/Toolbar" unique_id=57030283]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="ResetButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=212379595]
+[node name="ResetButton" type="Button" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/Toolbar" unique_id=212379595]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Reset"
 
-[node name="HelpButton" type="Button" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=769979553]
+[node name="HelpButton" type="Button" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/Toolbar" unique_id=769979553]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Help!"
 
-[node name="SpeedSlider" type="HSlider" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=996589957]
+[node name="SettingsRow" type="HBoxContainer" parent="MarginContainer/MainColumn/GameCenter/LeftColumn" unique_id=1561211145]
+layout_mode = 2
+
+[node name="SliderLabel" type="Label" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/SettingsRow" unique_id=2116406534]
+layout_mode = 2
+text = "Speed"
+
+[node name="SpeedSlider" type="HSlider" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/SettingsRow" unique_id=996589957]
+unique_name_in_owner = true
 custom_minimum_size = Vector2(120, 0)
 layout_mode = 2
 offset_transform_position = Vector2(0, 50)
@@ -85,31 +95,32 @@ min_value = 1.0
 max_value = 40.0
 value = 1.0
 
-[node name="WaitCheck" type="CheckBox" parent="MarginContainer/HBoxContainer/LeftColumn/Toolbar" unique_id=345158805]
+[node name="WaitCheck" type="CheckBox" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/SettingsRow" unique_id=345158805]
+unique_name_in_owner = true
 layout_mode = 2
 text = "Authentic draw spd."
 
-[node name="ControlsPanel" type="PanelContainer" parent="MarginContainer/HBoxContainer/LeftColumn" unique_id=1374951924]
+[node name="ControlsPanel" type="PanelContainer" parent="MarginContainer/MainColumn/GameCenter/LeftColumn" unique_id=1374951924]
 layout_mode = 2
 
-[node name="ControlsLabel" type="Label" parent="MarginContainer/HBoxContainer/LeftColumn/ControlsPanel" unique_id=577219394]
+[node name="ControlsLabel" type="Label" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/ControlsPanel" unique_id=577219394]
 unique_name_in_owner = true
 layout_mode = 2
 text = "Controls : -"
 
-[node name="Debugger" type="TabContainer" parent="MarginContainer/HBoxContainer" unique_id=1577134825]
-custom_minimum_size = Vector2(360, 0)
-custom_maximum_size = Vector2(-1, 375)
+[node name="Debugger" type="TabContainer" parent="MarginContainer/MainColumn" unique_id=1577134825]
+custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
 size_flags_horizontal = 3
+size_flags_vertical = 3
 current_tab = 0
 
-[node name="CPU" type="ScrollContainer" parent="MarginContainer/HBoxContainer/Debugger" unique_id=1539096709]
+[node name="CPU" type="ScrollContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=1539096709]
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 metadata/_tab_index = 0
 
-[node name="DebugLabel" type="Label" parent="MarginContainer/HBoxContainer/Debugger/CPU" unique_id=2024961314]
+[node name="DebugLabel" type="Label" parent="MarginContainer/MainColumn/Debugger/CPU" unique_id=2024961314]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
@@ -119,27 +130,27 @@ theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 vertical_alignment = 1
 
-[node name="Code" type="VBoxContainer" parent="MarginContainer/HBoxContainer/Debugger" unique_id=697630052]
+[node name="Code" type="VBoxContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=697630052]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 1
 
-[node name="DisassemblyLabel" type="Label" parent="MarginContainer/HBoxContainer/Debugger/Code" unique_id=1524784641]
+[node name="DisassemblyLabel" type="Label" parent="MarginContainer/MainColumn/Debugger/Code" unique_id=1524784641]
 unique_name_in_owner = true
 layout_mode = 2
 
-[node name="BreakpointEdit" type="LineEdit" parent="MarginContainer/HBoxContainer/Debugger/Code" unique_id=456155297]
+[node name="BreakpointEdit" type="LineEdit" parent="MarginContainer/MainColumn/Debugger/Code" unique_id=456155297]
 unique_name_in_owner = true
 custom_minimum_size = Vector2(500, 0)
 layout_mode = 2
 placeholder_text = "Hex breakpoint, e.g 204"
 
-[node name="Memory" type="ScrollContainer" parent="MarginContainer/HBoxContainer/Debugger" unique_id=1622185264]
+[node name="Memory" type="ScrollContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=1622185264]
 visible = false
 layout_mode = 2
 metadata/_tab_index = 2
 
-[node name="MemoryLabel" type="Label" parent="MarginContainer/HBoxContainer/Debugger/Memory" unique_id=746577037]
+[node name="MemoryLabel" type="Label" parent="MarginContainer/MainColumn/Debugger/Memory" unique_id=746577037]
 unique_name_in_owner = true
 layout_mode = 2
 

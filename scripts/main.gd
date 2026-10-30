@@ -7,6 +7,8 @@ extends Control
 @onready var breakpoint_edit: LineEdit = $%BreakpointEdit
 @onready var help_overlay: PanelContainer = $%HelpOverlay
 @onready var memory_label: Label = $%MemoryLabel
+@onready var speed_slider: HSlider = $%SpeedSlider
+@onready var wait_check: CheckBox = $%WaitCheck
 
 const FONT_START := 0x50
 const FONT := [
@@ -187,12 +189,18 @@ func setup_toolbar() -> void:
 		b.focus_mode = Control.FOCUS_NONE
 
 func setup_settings() -> void:
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.value = instructions_per_frame
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.value_changed.connect(func(v): instructions_per_frame = int(v))
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.button_pressed = display_wait_enabled
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.toggled.connect(func(on): display_wait_enabled = on)
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/SpeedSlider.focus_mode = Control.FOCUS_NONE
-	$MarginContainer/HBoxContainer/LeftColumn/Toolbar/WaitCheck.focus_mode = Control.FOCUS_NONE
+	speed_slider.value = instructions_per_frame
+	speed_slider.value_changed.connect(
+		func(v): instructions_per_frame = int(v)
+	)
+	
+	wait_check.button_pressed = display_wait_enabled
+	wait_check.toggled.connect(
+		func(on): display_wait_enabled = on
+	)
+	
+	speed_slider.focus_mode = Control.FOCUS_NONE
+	wait_check.focus_mode = Control.FOCUS_NONE
 
 func setup_sound() -> void:
 	var rate := 22050
@@ -215,8 +223,12 @@ func setup_sound() -> void:
 func setup_picker() -> void:
 	scan_roms()
 	rom_picker.clear()
+	rom_picker.fit_to_longest_item = false
+	rom_picker.clip_text = true
+	rom_picker.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
 	for rom_name in rom_names:
 		rom_picker.add_item(rom_name)
+		rom_picker.set_item_tooltip(rom_picker.item_count - 1, rom_name)
 	rom_picker.item_selected.connect(_on_rom_selected)
 	rom_picker.focus_mode = Control.FOCUS_NONE
 
@@ -234,6 +246,7 @@ func _on_rom_selected(index: int) -> void:
 	if index < 0 or index >= rom_names.size():
 		return
 	var next_path: String = rom_paths[rom_names[index]]
+	rom_picker.tooltip_text = rom_names[index]
 	if next_path != current_rom:
 		breakpoints.clear()
 	current_rom = next_path
