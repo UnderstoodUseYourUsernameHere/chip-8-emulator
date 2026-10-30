@@ -7,6 +7,7 @@ extends Control
 @onready var breakpoint_edit: LineEdit = $%BreakpointEdit
 @onready var help_overlay: PanelContainer = $%HelpOverlay
 @onready var memory_label: Label = $%MemoryLabel
+@onready var controls_label: Label = $%ControlsLabel
 @onready var speed_slider: HSlider = $%SpeedSlider
 @onready var wait_check: CheckBox = $%WaitCheck
 
@@ -242,6 +243,36 @@ func setup_open_dialog() -> void:
 	get_window().files_dropped.connect(_on_files_dropped)
 	%OpenButton.pressed.connect(open_rom_dialog)
 
+func update_controls_label() -> void:
+	if not rom_loaded:
+		controls_label.text = "CONTROLS: No ROM loaded!"
+		return
+	
+	var used: Array = keys_used.keys()
+	used.sort()
+	
+	var text := "KEYS CHECKED BY THIS ROM:\n"
+	
+	if used.is_empty():
+		text += "No specific keys detected yet."
+	else:
+		for index in range(used.size()):
+			var chip8_key := int(used[index])
+			var keyboard_key := OS.get_keycode_string(KEYMAP[chip8_key])
+			
+			if index > 0:
+				if index % 4 == 0:
+					text += "\n"
+				else:
+					text += "  "
+			
+			text += "%X -> %s" % [chip8_key, keyboard_key]
+			
+	if announced_any_key:
+		text += "\nAlso uses ANY keypad key: press, then release."
+	
+	controls_label.text = text
+
 func _on_rom_selected(index: int) -> void:
 	if index < 0 or index >= rom_names.size():
 		return
@@ -270,7 +301,6 @@ func load_external_rom(path: String) -> void:
 	rom_loaded = load_rom(path)
 	if rom_loaded:
 		rom_picker.select(-1)
-		%ControlsLabel.text = "Controls: unknown - watch USES in the CPU tab"
 		paused = false
 
 func _input(event: InputEvent) -> void:
@@ -477,6 +507,7 @@ func _physics_process(_delta: float) -> void:
 	update_debug()
 	update_disassembly()
 	update_memory_view()
+	update_controls_label()
 
 func run_frame() -> void:
 	if not rom_loaded or faulted:

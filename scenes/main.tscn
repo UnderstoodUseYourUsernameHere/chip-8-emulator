@@ -105,8 +105,10 @@ layout_mode = 2
 
 [node name="ControlsLabel" type="Label" parent="MarginContainer/MainColumn/GameCenter/LeftColumn/ControlsPanel" unique_id=577219394]
 unique_name_in_owner = true
+custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 text = "Controls : -"
+autowrap_mode = 3
 
 [node name="Debugger" type="TabContainer" parent="MarginContainer/MainColumn" unique_id=1577134825]
 custom_minimum_size = Vector2(0, 280)
