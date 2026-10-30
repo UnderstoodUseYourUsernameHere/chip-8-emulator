@@ -10,6 +10,7 @@ extends Control
 @onready var controls_label: Label = $%ControlsLabel
 @onready var speed_slider: HSlider = $%SpeedSlider
 @onready var wait_check: CheckBox = $%WaitCheck
+@onready var keypad_grid: GridContainer = $%KeypadGrid
 
 const FONT_START := 0x50
 const FONT := [
@@ -41,6 +42,15 @@ var keys := PackedByteArray()
 var waiting_for_key := -1
 var keys_used := {}
 var announced_any_key := false
+
+const KEYPAD_ORDER := [
+	0x1, 0x2, 0x3, 0xC,
+	0x4, 0x5, 0x6, 0xD,
+	0x7, 0x8, 0x9, 0xE,
+	0xA, 0x0, 0xB, 0xF
+]
+var pad_keys := PackedByteArray()
+var pad_buttons := {}
 
 const ROM_FOLDERS := ["res://roms", "res://games"]
 var rom_names: Array[String] = []
@@ -137,6 +147,7 @@ func load_rom(path: String) -> bool:
 	rng.randomize()
 	keys.resize(16) 
 	keys.fill(0)
+	pad_keys.fill(0)
 	keys_used.clear()
 	announced_any_key = false
 	faulted = false
@@ -199,6 +210,45 @@ func setup_toolbar() -> void:
 	%ResetButton.pressed.connect(reset_rom)
 	for b in [%PauseButton, %ResetButton, %OpenButton, %HelpButton]:
 		b.focus_mode = Control.FOCUS_NONE
+
+func setup_keypad() -> void:
+	pad_keys.resize(16)
+	pad_keys.fill(0)
+	
+	for key in KEYPAD_ORDER:
+		var button := Button.new()
+		
+		button.text = "%X\n%s" % [
+			key, 
+			OS.get_keycode_string(KEYMAP[key])
+		]
+		button.custom_minimum_size = Vector2(64, 44)
+		button.focus_mode = Control.FOCUS_NONE
+		
+		button.button_down.connect(
+			_on_keypad_changed.bind(key, true)
+		)
+		
+		button.button_up.connect(
+			_on_keypad_changed.bind(key, false)
+		)
+		
+		keypad_grid.add_child(button)
+		pad_buttons[key] = button
+
+func _on_keypad_changed(key: int, down: bool) -> void:
+	pad_keys[key] = 1 if down else 0
+
+func refresh_keypad() -> void:
+	for key in KEYPAD_ORDER:
+		var button: Button = pad_buttons[key]
+		
+		if keys.size() == 16 and keys[key] == 1:
+			button.modulate = Color("#8fffa0")
+		elif keys_used.has(key):
+			button.modulate = Color("#ffd27f")
+		else:
+			button.modulate = Color.WHITE
 
 func setup_settings() -> void:
 	speed_slider.value = instructions_per_frame
@@ -299,7 +349,7 @@ func restore_rewind_state(snapshot: Dictionary) -> void:
 	last_pc = snapshot["last_pc"]
 	last_opcode = snapshot["last_opcode"]
 	
-	keys_used = snapshot["keys_used"]
+	keys_used = snapshot["keys_used"].duplicate()
 	announced_any_key = snapshot["announced_any_key"]
 	
 	rng.seed = snapshot["rng_seed"]
@@ -449,7 +499,7 @@ func _input(event: InputEvent) -> void:
 		KEY_F1:
 			show_help(true)
 		
-		KEY_0:
+		KEY_O:
 			open_rom_dialog()
 		
 		_:
@@ -560,7 +610,10 @@ func read_keys() -> void:
 		return
 	
 	for k in 16:
-		keys[k] = 1 if Input.is_physical_key_pressed(KEYMAP[k]) else 0
+		var keyboard_down := Input.is_physical_key_pressed(KEYMAP[k])
+		var pad_down := pad_keys[k] == 1
+		
+		keys[k] = 1 if keyboard_down or pad_down else 0
 
 func note_key(k: int) -> void:
 	if keys_used.has(k):
@@ -579,6 +632,7 @@ func _ready() -> void:
 	setup_open_dialog()
 	setup_settings()
 	setup_toolbar()
+	setup_keypad()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
 
@@ -606,6 +660,7 @@ func _physics_process(_delta: float) -> void:
 	update_disassembly()
 	update_memory_view()
 	update_controls_label()
+	refresh_keypad()
 
 func run_frame() -> void:
 	if not rom_loaded or faulted:
@@ -652,6 +707,7 @@ func show_help(show: bool) -> void:
 		paused_before_help = paused 
 		paused = true
 		beep.stop()
+		pad_keys.fill(0)
 	else:
 		paused = paused_before_help
 
@@ -659,7 +715,7 @@ func update_sound() -> void:
 	var should_beep := (
 		sound_timer > 0
 		and not paused
-		and not rom_loaded
+		and rom_loaded
 		and not rewinding
 	)
 	if should_beep and not beep.playing:
