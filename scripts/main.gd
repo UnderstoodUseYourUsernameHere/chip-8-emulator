@@ -38,16 +38,9 @@ var waiting_for_key := -1
 var keys_used := {}
 var announced_any_key := false
 
-const ROMS := {
-	"IBM Logo": "res://roms/2-ibm-logo.ch8",
-	"Corax+ Test": "res://roms/3-corax+.ch8",
-	"Quirks Test": "res://roms/5-quirks.ch8",
-	"Keypad Test": "res://roms/6-keypad.ch8",
-	"Brix": "res://games/Brix.ch8",
-	"Flags Test": "res://roms/4-flags.ch8",
-	"Beep Test": "res://roms/7-beep.ch8",
-	"Cave": "res://games/Cave.ch8",
-}
+const ROM_FOLDERS := ["res://roms", "res://games"]
+var rom_names: Array[String] = []
+var rom_paths := {}
 
 var instructions_per_frame := 11
 var current_rom := ""
@@ -130,6 +123,20 @@ func load_rom(path: String) -> bool:
 func reset_rom() -> void:
 	rom_loaded = load_rom(current_rom)
 
+func scan_roms() -> void:
+	rom_names.clear()
+	rom_paths.clear()
+	for folder in ROM_FOLDERS:
+		if not DirAccess.dir_exists_absolute(folder):
+			continue
+		for f in DirAccess.get_files_at(folder):
+			if f.get_extension().to_lower() != "ch8":
+				continue
+			var pretty := f.get_basename().replace("-", " ").replace("_", " ")
+			rom_names.append(pretty)
+			rom_paths[pretty] = folder + "/" + f
+	rom_names.sort()
+
 func setup_screen() -> void:
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
 	img.fill(Color.BLACK)
@@ -162,13 +169,20 @@ func setup_sound() -> void:
 	add_child(beep)
 
 func setup_picker() -> void:
-	for rom_name in ROMS.keys():
+	scan_roms()
+	rom_picker.clear()
+	for rom_name in rom_names:
 		rom_picker.add_item(rom_name)
 	rom_picker.item_selected.connect(_on_rom_selected)
 	rom_picker.focus_mode = Control.FOCUS_NONE
 
 func _on_rom_selected(index: int) -> void:
-	current_rom = ROMS.values()[index]
+	if index < 0 or index >= rom_names.size():
+		return
+	var next_path: String = rom_paths[rom_names[index]]
+	if next_path != current_rom:
+		breakpoints.clear()
+	current_rom = next_path
 	rom_loaded = load_rom(current_rom)
 
 func _input(event: InputEvent) -> void:
