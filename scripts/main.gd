@@ -68,6 +68,7 @@ var display := PackedByteArray()
 var display_wait_enabled := true
 var drew_this_frame := false
 
+var open_dialog := FileDialog.new()
 
 var beep := AudioStreamPlayer.new()
 
@@ -176,6 +177,16 @@ func setup_picker() -> void:
 	rom_picker.item_selected.connect(_on_rom_selected)
 	rom_picker.focus_mode = Control.FOCUS_NONE
 
+func setup_open_dialog() -> void:
+	open_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
+	open_dialog.access = FileDialog.ACCESS_FILESYSTEM
+	open_dialog.filters = PackedStringArray(["*.ch8 ; CHIP-8 ROM"])
+	open_dialog.title = "Open CHIP-8 ROM"
+	open_dialog.file_selected.connect(load_external_rom)
+	add_child(open_dialog)
+	get_window().files_dropped.connect(_on_files_dropped)
+	%OpenButton.pressed.connect(open_rom_dialog)
+
 func _on_rom_selected(index: int) -> void:
 	if index < 0 or index >= rom_names.size():
 		return
@@ -184,6 +195,27 @@ func _on_rom_selected(index: int) -> void:
 		breakpoints.clear()
 	current_rom = next_path
 	rom_loaded = load_rom(current_rom)
+
+func open_rom_dialog() -> void:
+	paused = true
+	open_dialog.popup_centered(Vector2i(720, 460))
+
+func _on_files_dropped(files: PackedStringArray) -> void:
+	for f in files:
+		if f.get_extension().to_lower() == "ch8":
+			load_external_rom(f)
+			return
+	status = "Drop a .ch8 file in here."
+
+func load_external_rom(path: String) -> void:
+	if path != current_rom:
+		breakpoints.clear()
+	current_rom = path
+	rom_loaded = load_rom(path)
+	if rom_loaded:
+		rom_picker.select(-1)
+		%ControlsLabel.text = "Controls: unknown - watch USES in the CPU tab"
+		paused = false
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:
@@ -235,6 +267,9 @@ func _input(event: InputEvent) -> void:
 		
 		KEY_F1:
 			show_help(true)
+		
+		KEY_0:
+			open_rom_dialog()
 		
 		_:
 			return
@@ -360,6 +395,7 @@ func _ready() -> void:
 	setup_screen()
 	setup_sound()
 	setup_picker()
+	setup_open_dialog()
 	setup_toolbar()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
