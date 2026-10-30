@@ -160,24 +160,57 @@ func _on_rom_selected(index: int) -> void:
 	rom_loaded = load_rom(current_rom)
 
 func _input(event: InputEvent) -> void:
-	if not (event is InputEventKey) or not event.pressed or event.echo:
+	if event is InputEventMouseButton:
+		if event.pressed and event.button_index == MOUSE_BUTTON_LEFT:
+			if breakpoint_edit.has_focus():
+				var field_rect := Rect2(
+					Vector2.ZERO,
+					breakpoint_edit.size
+				)
+				
+				var mouse_position := (
+					breakpoint_edit.get_local_mouse_position()
+				)
+				
+				if not field_rect.has_point(mouse_position):
+					breakpoint_edit.release_focus()
 		return
+	
+	if not (event is InputEventKey):
+		return
+	
+	if not event.pressed or event.echo:
+		return
+	
 	if breakpoint_edit.has_focus():
+		if event.keycode == KEY_ESCAPE:
+			breakpoint_edit.release_focus()
+			get_viewport().set_input_as_handled()
+		
 		return
+	
 	match event.keycode:
 		KEY_ESCAPE:
 			rom_loaded = load_rom(current_rom)
+		
 		KEY_P:
 			toggle_pause()
+		
 		KEY_N:
 			step_instruction()
+		
 		KEY_M:
 			step_tick()
+		
+		_:
+			return
+		
+	get_viewport().set_input_as_handled()
 
 func parse_breakpoint_address(raw_text: String) -> int:
 	var cleaned := raw_text.strip_edges().to_upper()
 	
-	if cleaned.begins_with("OX"):
+	if cleaned.begins_with("0X"):
 		cleaned = cleaned.substr(2)
 	
 	if cleaned.is_empty() or cleaned.length() > 3:
