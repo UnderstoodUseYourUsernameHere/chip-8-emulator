@@ -125,6 +125,9 @@ func load_rom(path: String) -> bool:
 	print("Loaded ", rom.size(), " bytes from ", path)
 	return true
 
+func reset_rom() -> void:
+	rom_loaded = load_rom(current_rom)
+
 func setup_screen() -> void:
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
 	img.fill(Color.BLACK)
@@ -132,6 +135,11 @@ func setup_screen() -> void:
 	screen.texture = tex
 	screen.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
 
+func setup_toolbar() -> void:
+	%PauseButton.pressed.connect(toggle_pause)
+	%ResetButton.pressed.connect(reset_rom)
+	for b in [%PauseButton, %ResetButton, %OpenButton, %HelpButton]:
+		b.focus_mode = Control.FOCUS_NONE
 
 func setup_sound() -> void:
 	var rate := 22050
@@ -193,7 +201,7 @@ func _input(event: InputEvent) -> void:
 	
 	match event.keycode:
 		KEY_ESCAPE:
-			rom_loaded = load_rom(current_rom)
+			reset_rom()
 		
 		KEY_P:
 			toggle_pause()
@@ -324,6 +332,7 @@ func _ready() -> void:
 	setup_screen()
 	setup_sound()
 	setup_picker()
+	setup_toolbar()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
 
@@ -386,6 +395,8 @@ func update_debug() -> void:
 	if not rom_loaded:
 		debug_label.text = "NO ROM LOADED!!!!\n" + status
 		return
+	
+	%PauseButton.text = "Resume" if paused else "Pause"
 	
 	var t := ""
 	t += "PAUSED\n" if paused else "RUNNING\n"
