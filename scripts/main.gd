@@ -5,6 +5,7 @@ extends Control
 @onready var debug_label: Label = $%DebugLabel
 @onready var disassembly_label: Label = $%DisassemblyLabel
 @onready var breakpoint_edit: LineEdit = $%BreakpointEdit
+@onready var help_overlay: PanelContainer = $%HelpOverlay
 
 const FONT_START := 0x50
 const FONT := [
@@ -51,6 +52,7 @@ const ROMS := {
 var instructions_per_frame := 11
 var current_rom := ""
 var paused := false
+var paused_before_help := false
 var last_opcode := 0 ## These ones are something im not sure of, hopefully they work as i think they will
 var last_pc := 0
 var status := ""
@@ -192,6 +194,11 @@ func _input(event: InputEvent) -> void:
 	if not event.pressed or event.echo:
 		return
 	
+	if help_overlay.visible:
+		if event.keycode == KEY_F1 or event.keycode == KEY_ESCAPE:
+			show_help(false)
+		return
+	
 	if breakpoint_edit.has_focus():
 		if event.keycode == KEY_ESCAPE:
 			breakpoint_edit.release_focus()
@@ -211,6 +218,9 @@ func _input(event: InputEvent) -> void:
 		
 		KEY_M:
 			step_tick()
+		
+		KEY_F1:
+			show_help(true)
 		
 		_:
 			return
@@ -315,7 +325,7 @@ func draw_screen() -> void:
 	tex.update(img)
 
 func read_keys() -> void:
-	if breakpoint_edit.has_focus():
+	if breakpoint_edit.has_focus() or help_overlay.visible:
 		keys.fill(0)
 		return
 	
@@ -329,6 +339,10 @@ func note_key(k: int) -> void:
 	print("ROM check CHIP8 key %X -> press keypad '%s'" % [k, OS.get_keycode_string(KEYMAP[k])])
 
 func _ready() -> void:
+	%PowerButton.pressed.connect(func(): show_help(false))
+	%PowerButton.focus_mode = Control.FOCUS_NONE
+	%HelpButton.pressed.connect(func(): show_help(true))
+	show_help(true)
 	setup_screen()
 	setup_sound()
 	setup_picker()
@@ -383,6 +397,15 @@ func tick_timers() -> void:
 		delay_timer -= 1
 	if sound_timer > 0:
 		sound_timer -= 1
+
+func show_help(show: bool) -> void:
+	help_overlay.visible = show
+	if show:
+		paused_before_help = paused 
+		paused = true
+		beep.stop()
+	else:
+		paused = paused_before_help
 
 func update_sound() -> void:
 	var should_beep := sound_timer > 0 and not paused and rom_loaded

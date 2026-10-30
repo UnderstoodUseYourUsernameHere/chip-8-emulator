@@ -3,6 +3,7 @@
 [ext_resource type="Script" uid="uid://cjfrrxdf65mou" path="res://scripts/main.gd" id="1_o5qli"]
 [ext_resource type="Theme" uid="uid://dl0wnht7fual8" path="res://fonts/ui_theme.tres" id="1_sugp2"]
 [ext_resource type="FontFile" uid="uid://cnj7ag55ndxa5" path="res://fonts/PressStart2P-Regular.ttf" id="2_0wfyh"]
+[ext_resource type="StyleBox" uid="uid://dvspxy582oxny" path="res://fonts/panel_style.tres" id="3_jyhfs"]
 
 [node name="Main" type="Control" unique_id=1691564137]
 layout_mode = 3
@@ -127,3 +128,55 @@ metadata/_tab_index = 2
 [node name="MemoryLabel" type="Label" parent="MarginContainer/HBoxContainer/Debugger/Memory" unique_id=746577037]
 unique_name_in_owner = true
 layout_mode = 2
+
+[node name="HelpOverlay" type="PanelContainer" parent="." unique_id=178006775]
+unique_name_in_owner = true
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+offset_left = -34.0
+offset_right = -34.0
+grow_horizontal = 2
+grow_vertical = 2
+theme_override_styles/panel = ExtResource("3_jyhfs")
+
+[node name="CenterContainer" type="CenterContainer" parent="HelpOverlay" unique_id=1686378302]
+layout_mode = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="HelpOverlay/CenterContainer" unique_id=433034145]
+custom_minimum_size = Vector2(800, 300)
+layout_mode = 2
+
+[node name="Label" type="Label" parent="HelpOverlay/CenterContainer/VBoxContainer" unique_id=604334603]
+layout_mode = 2
+theme_override_font_sizes/font_size = 28
+text = "CHIP-8 · 1977"
+
+[node name="HelpText" type="RichTextLabel" parent="HelpOverlay/CenterContainer/VBoxContainer" unique_id=703724739]
+unique_name_in_owner = true
+layout_mode = 2
+bbcode_enabled = true
+text = "[b] WHAT THIS IS[/b]
+A CHIP-8 emulator! Or rather interpereter. The CHIP-8 in 1977 had only FOUR kilobytes of RAM, 16 registers, and a 64x32 screen! Real antique, right? 
+
+Pick a cartridge down there and play!
+
+[b]KEYPAD[/b]   CHIP-8 -> keyboard
+  1 2 3 C              1 2 3 4
+  4 5 6 D              Q W E R
+  7 8 9 E              A S D F
+  A 0 B F              Z X C V
+
+
+[b]EMULATOR[/b]
+  P   pause / resume     Esc  reset cartridge
+  N   step 1 instruction M    step 1 frame
+  O   open a ROM file    F1   this screen
+  Drag a .ch8 file onto the window to play it."
+fit_content = true
+
+[node name="PowerButton" type="Button" parent="HelpOverlay/CenterContainer/VBoxContainer" unique_id=1637095342]
+unique_name_in_owner = true
+layout_mode = 2
+text = "POWER ON"
