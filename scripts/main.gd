@@ -59,6 +59,7 @@ var frame_blocked := false
 
 var breakpoints := {}
 var skip_breakpoint_pc := -1 
+var stopped_breakpoint_pc := -1
 
 var stack: Array[int] = []
 var delay_timer := 0
@@ -96,6 +97,7 @@ func load_rom(path: String) -> bool:
 	faulted = false
 	frame_blocked = false
 	skip_breakpoint_pc = -1
+	stopped_breakpoint_pc = -1
 	last_pc = -1
 	last_opcode = -1
 	waiting_for_key = -1
@@ -270,7 +272,8 @@ func toggle_pause() -> void:
 		paused = true
 		return
 	
-	var was_stopped_at_breakpoint := status.begins_with("Breakpoint at")
+	var was_stopped_at_breakpoint := stopped_breakpoint_pc == pc 
+	stopped_breakpoint_pc = -1
 	
 	paused = false
 	status = ""
@@ -346,6 +349,7 @@ func run_frame() -> void:
 		
 		if breakpoints.has(pc) and not bypass_breakpoint:
 			paused = true
+			stopped_breakpoint_pc = pc
 			status = "Breakpoint at  %03X" % pc
 			return
 		
