@@ -11,6 +11,9 @@ extends Control
 @onready var speed_slider: HSlider = $%SpeedSlider
 @onready var wait_check: CheckBox = $%WaitCheck
 @onready var keypad_grid: GridContainer = $%KeypadGrid
+@onready var profile_picker: OptionButton = $%ProfilePicker
+@onready var quirk_box: VBoxContainer = $%QuirkBox
+@onready var trace_label: Label = $%TraceLabel
 
 const FONT_START := 0x50
 const FONT := [
@@ -62,6 +65,75 @@ var rewind_history: Array[Dictionary] = []
 var rewinding := false
 
 var rng := RandomNumberGenerator.new()
+
+const QUIRK_ORDER := [
+	"vf_reset",
+	"shift_vy",
+	"memory_increment",
+	"jump_v0",
+	"clip",
+]
+
+const QUIRK_LABELS := {
+	"vf_reset": "Logic operations clear VF",
+	"shift_vy": "Shift instructions read VY",
+	"memory_increment": "FX55 / FX65 advance I",
+	"jump_v0": "BNNN offset uses V0",
+	"clip": "Sprites clip at screen edges",
+}
+
+const QUIRK_TOOLTIPS := {
+	"vf_reset":
+		"8XY1, 8XY2 and 8XY3 set VF to zero on the original CHIP-8.",
+	
+	"shift_vy":
+		"On the original CHIP-8, 8XY6 and 8XYE shift VY and store the result in VX. Later interpreters shift VX itself.",
+	
+	"memory_increment":
+		"On the original CHIP-8, FX55 and FX65 move I forward after transferring registers.",
+	
+	"jump_v0":
+		"Original behavior: BNNN jumps to NNN + V0. Later interpreters use the register named by X.",
+	
+	"clip":
+		"When enabled, sprite pixels beyond the right or bottom edge are discarded. When disabled they wrap around the screen instead.",
+}
+
+var quirks := {
+	"vf_reset": true,
+	"shift_vy": true,
+	"memory_increment": true,
+	"jump_v0": true,
+	"clip": true,
+}
+
+var quirk_checks := {}
+
+const PROFILE_ORDER := [
+	"Original CHIP-8",
+	"Modern quirks",
+	"Custom",
+]
+
+const COMPATIBILITY_PROFILES := {
+	"Original CHIP-8": {
+		"vf_reset": true,
+		"shift_vy": true,
+		"memory_increment": true,
+		"jump_v0": true,
+		"clip": true,
+		"display_wait": true,
+	},
+	
+	"Modern quirks": {
+		"vf_reset": false,
+		"shift_vy": false,
+		"memory_increment": false,
+		"jump_v0": false,
+		"clip": true,
+		"display_wait": false,
+	}
+}
 
 var instructions_per_frame := 11
 var current_rom := ""
@@ -131,6 +203,26 @@ func update_memory_view() -> void:
 			t += "%s%02X" % [mark, memory[a]]
 		t += "\n"
 	memory_label.text = t
+
+func update_trace_view() -> void:
+	if not rom_loaded:
+		trace_label.text = "NO TRACE"
+		return
+	
+	var text := "RECENT INSTRUCTIONS\n\n"
+	var start := maxi(0, trace.size() - 20)
+	
+	for index in range(start, trace.size()):
+		var packed_entry: int = trace[index]
+		var trace_pc := packed_entry >> 16
+		var trace_opcode := packed_entry & 0xFFFF
+		
+		text += "%03X %04X %s\n" % [
+			trace_pc,
+			trace_opcode,
+			disassemble(trace_opcode)
+		]
+	trace_label.text = text
 
 func load_rom(path: String) -> bool:
 	memory.resize(4096) ## Resets everything to a clean slate
@@ -211,6 +303,84 @@ func setup_toolbar() -> void:
 	for b in [%PauseButton, %ResetButton, %OpenButton, %HelpButton]:
 		b.focus_mode = Control.FOCUS_NONE
 
+func setup_compatibility_settings() -> void:
+	profile_picker.clear()
+	
+	for profile_name in PROFILE_ORDER:
+		profile_picker.add_item(profile_name)
+	
+	profile_picker.focus_mode = Control.FOCUS_NONE
+	profile_picker.item_selected.connect(_on_profile_selected)
+	
+	for quirk_name in QUIRK_ORDER:
+		var checkbox := CheckBox.new()
+		
+		checkbox.text = str(QUIRK_LABELS[quirk_name])
+		checkbox.tooltip_text = str(QUIRK_TOOLTIPS[quirk_name])
+		checkbox.focus_mode = Control.FOCUS_NONE
+		
+		checkbox.toggled.connect(
+			_on_quirk_toggled.bind(quirk_name)
+		)
+		
+		quirk_box.add_child(checkbox)
+		quirk_checks[quirk_name] = checkbox
+	
+	apply_compatibility_profile("Original CHIP-8")
+
+func apply_compatibility_profile(profile_name: String) -> void:
+	if not COMPATIBILITY_PROFILES.has(profile_name):
+		return
+	
+	var profile: Dictionary = COMPATIBILITY_PROFILES[profile_name]
+	
+	for quirk_name in QUIRK_ORDER:
+		quirks[quirk_name] = bool(profile[quirk_name])
+		
+	display_wait_enabled = bool(profile["display_wait"])
+	
+	sync_compatibility_controls()
+	rewind_history.clear()
+	
+	status = "Compat. profile: " + profile_name
+
+func sync_compatibility_controls() -> void:
+	for quirk_name in QUIRK_ORDER:
+		var checkbox: CheckBox = quirk_checks[quirk_name]
+		
+		checkbox.set_pressed_no_signal(
+			bool(quirks[quirk_name])
+		)
+	wait_check.set_pressed_no_signal(display_wait_enabled)
+
+func _on_profile_selected(index: int) -> void:
+	if index < 0 or index >= PROFILE_ORDER.size():
+		return
+	
+	var profile_name: String = PROFILE_ORDER[index]
+	
+	if profile_name == "Custom":
+		return
+	
+	apply_compatibility_profile(profile_name)
+
+func mark_profile_custom() -> void:
+	var custom_index := PROFILE_ORDER.find("Custom")
+	
+	if custom_index >= 0:
+		profile_picker.select(custom_index)
+
+func _on_quirk_toggled(
+	enabled: bool,
+	quirk_name: String
+) -> void:
+	quirks[quirk_name] = enabled
+	
+	mark_profile_custom()
+	rewind_history.clear()
+	
+	status = "Custom Compatibility settings enabled."
+
 func setup_keypad() -> void:
 	pad_keys.resize(16)
 	pad_keys.fill(0)
@@ -257,9 +427,7 @@ func setup_settings() -> void:
 	)
 	
 	wait_check.button_pressed = display_wait_enabled
-	wait_check.toggled.connect(
-		func(on): display_wait_enabled = on
-	)
+	wait_check.toggled.connect(_on_display_wait_toggled)
 	
 	speed_slider.focus_mode = Control.FOCUS_NONE
 	wait_check.focus_mode = Control.FOCUS_NONE
@@ -310,6 +478,7 @@ func capture_rewind_state() -> Dictionary:
 		"registers": V.duplicate(),
 		"display": display.duplicate(),
 		"stack": stack.duplicate(),
+		"quirks": quirks.duplicate(),
 		
 		"pc": pc,
 		"I": I,
@@ -369,6 +538,9 @@ func restore_rewind_state(snapshot: Dictionary) -> void:
 	stopped_breakpoint_pc = -1
 	status = ""
 	
+	quirks = snapshot["quirks"].duplicate()
+	sync_compatibility_controls()
+	
 	beep.stop()
 
 func remember_rewind_state() -> void:
@@ -416,6 +588,14 @@ func _on_rom_selected(index: int) -> void:
 		breakpoints.clear()
 	current_rom = next_path
 	rom_loaded = load_rom(current_rom)
+
+func _on_display_wait_toggled(enabled: bool) -> void:
+	display_wait_enabled = enabled
+	
+	mark_profile_custom()
+	rewind_history.clear()
+	
+	status = "Custom compat. settings enabled."
 
 func open_rom_dialog() -> void:
 	paused = true
@@ -633,6 +813,7 @@ func _ready() -> void:
 	setup_settings()
 	setup_toolbar()
 	setup_keypad()
+	setup_compatibility_settings()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
 
@@ -659,6 +840,7 @@ func _physics_process(_delta: float) -> void:
 	update_debug()
 	update_disassembly()
 	update_memory_view()
+	update_trace_view()
 	update_controls_label()
 	refresh_keypad()
 
@@ -762,12 +944,6 @@ func update_debug() -> void:
 	t += "USES: " + used_keys_text() + "\n"
 	
 	t += "BREAKPOINTS: " + breakpoints_text() + "\n"
-	
-	t += "\nTRACE (oldest -> newest): \n"
-	for i in range(maxi(0, trace.size() - 10), trace.size()):
-		var tpc := trace[i] >> 16
-		var top := trace[i] & 0xFFFF
-		t += "%03X %04X %s\n" % [tpc, top, disassemble(top)]
 	
 	debug_label.text = t
 
@@ -959,13 +1135,16 @@ func step() -> void:
 					V[x] = V[y]
 				0x1:
 					V[x] = V[x] | V[y]
-					V[0xF] = 0
+					if quirks["vf_reset"]:
+						V[0xF] = 0
 				0x2:
 					V[x] = V[x] & V[y]
-					V[0xF] = 0
+					if quirks["vf_reset"]:
+						V[0xF] = 0
 				0x3:
 					V[x] = V[x] ^ V[y]
-					V[0xF] = 0
+					if quirks["vf_reset"]:
+						V[0xF] = 0
 				0x4:
 					var sum := V[x] + V[y]
 					var flag := 1 if sum > 255 else 0
@@ -982,12 +1161,28 @@ func step() -> void:
 					V[x] = diff & 0xFF
 					V[0xF] = flag
 				0x6:
-					var flag := V[y] & 1
-					V[x] = (V[y] >> 1) & 0xFF
+					var right_source: int
+					
+					if quirks["shift_vy"]:
+						right_source = V[y]
+					else:
+						right_source= V[x]
+					
+					var flag := right_source & 1
+					
+					V[x] = right_source >> 1
 					V[0xF] = flag
 				0xE:
-					var flag := (V[y] >> 7) & 1
-					V[x] = (V[y] << 1) & 0xFF
+					var left_source: int
+					
+					if quirks["shift_vy"]:
+						left_source = V[y]
+					else: 
+						left_source = V[x]
+					
+					var flag := (left_source >> 7) & 1
+					
+					V[x] = (left_source << 1) & 0xFF
 					V[0xF] = flag
 				_:
 					halt_machine("Unknown opcode %04X at %03X" % [opcode, last_pc])
@@ -997,7 +1192,14 @@ func step() -> void:
 		0xA:
 			I = nnn
 		0xB:
-			pc = nnn + V[0]
+			var jump_offset: int
+			
+			if quirks["jump_v0"]:
+				jump_offset = V[0]
+			else:
+				jump_offset = V[x]
+			
+			pc = nnn + jump_offset
 		0xC:
 			V[x] = rng.randi_range(0, 255) & nn
 		0xD:
@@ -1013,8 +1215,12 @@ func step() -> void:
 						continue
 					var sx := px + col
 					var sy := py + row
-					if sx >= 64 or sy >= 32:
-						continue
+					if quirks["clip"]:
+						if sx >= 64 or sy >= 32:
+							continue
+					else:
+						sx %= 64
+						sy %= 32
 					var idx = sy * 64 + sx
 					if display[idx] == 1:
 						V[0xF] = 1
@@ -1064,12 +1270,14 @@ func step() -> void:
 					memory[I + 1] = (V[x] / 10) % 10
 					memory[I + 2] = V[x] % 10
 				0x55: ## Stores V0 through Vx in memory
-					for i in range(x + 1):
-						memory[I] = V[i]
-						I += 1
+					for register_index in range(x + 1):
+						memory[I + register_index] = V[register_index]
+					if quirks["memory_increment"]:
+						I += x + 1
 				0x65: ## Loads V0 through Vx from memory
-					for i in range(x + 1):
-						V[i] = memory[I]
-						I += 1
+					for register_index in range(x + 1):
+						V[register_index] = memory[I + register_index]
+					if quirks["memory_increment"]:
+						I += x + 1
 				_:
 					halt_machine("Unknown opcode %04X at %03X" % [opcode, last_pc])

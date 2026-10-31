@@ -1,7 +1,7 @@
 [gd_scene format=3 uid="uid://octffbf5ai3y"]
 
+[ext_resource type="Theme" uid="uid://jrr2fnuubrmk" path="res://themes/ui_theme.tres" id="1_jyhfs"]
 [ext_resource type="Script" uid="uid://cjfrrxdf65mou" path="res://scripts/main.gd" id="1_o5qli"]
-[ext_resource type="Theme" uid="uid://dl0wnht7fual8" path="res://fonts/ui_theme.tres" id="1_sugp2"]
 [ext_resource type="FontFile" uid="uid://cnj7ag55ndxa5" path="res://fonts/PressStart2P-Regular.ttf" id="2_0wfyh"]
 [ext_resource type="StyleBox" uid="uid://dvspxy582oxny" path="res://fonts/panel_style.tres" id="3_jyhfs"]
 
@@ -12,7 +12,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-theme = ExtResource("1_sugp2")
+theme = ExtResource("1_jyhfs")
 script = ExtResource("1_o5qli")
 
 [node name="MarginContainer" type="MarginContainer" parent="." unique_id=880550542]
@@ -115,9 +115,10 @@ custom_minimum_size = Vector2(0, 280)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
-current_tab = 0
+current_tab = 4
 
 [node name="CPU" type="ScrollContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=1539096709]
+visible = false
 custom_minimum_size = Vector2(300, 0)
 layout_mode = 2
 metadata/_tab_index = 0
@@ -170,6 +171,35 @@ unique_name_in_owner = true
 layout_mode = 2
 columns = 4
 
+[node name="Settings" type="VBoxContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=1800413861]
+layout_mode = 2
+metadata/_tab_index = 4
+
+[node name="Label" type="Label" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=1633237348]
+layout_mode = 2
+text = "COMPAT. PROFILE"
+
+[node name="ProfilePicker" type="OptionButton" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=540693883]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Label2" type="Label" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=325121338]
+layout_mode = 2
+text = "ADVANCED BEHAVIOR"
+
+[node name="QuirkBox" type="VBoxContainer" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=959373423]
+unique_name_in_owner = true
+layout_mode = 2
+
+[node name="Trace" type="ScrollContainer" parent="MarginContainer/MainColumn/Debugger" unique_id=916267714]
+visible = false
+layout_mode = 2
+metadata/_tab_index = 5
+
+[node name="TraceLabel" type="Label" parent="MarginContainer/MainColumn/Debugger/Trace" unique_id=1582949026]
+unique_name_in_owner = true
+layout_mode = 2
+
 [node name="HelpOverlay" type="PanelContainer" parent="." unique_id=178006775]
 unique_name_in_owner = true
 visible = false
@@ -190,6 +220,7 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="HelpOverlay/CenterContainer/VBoxContainer" unique_id=604334603]
 layout_mode = 2
+theme_override_fonts/font = ExtResource("2_0wfyh")
 theme_override_font_sizes/font_size = 28
 text = "CHIP-8 · 1977"
 

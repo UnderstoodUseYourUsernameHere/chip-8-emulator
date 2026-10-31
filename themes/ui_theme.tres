@@ -1,0 +1,14 @@
+[gd_resource type="Theme" format=3 uid="uid://jrr2fnuubrmk"]
+
+[ext_resource type="FontFile" uid="uid://cnj7ag55ndxa5" path="res://fonts/PressStart2P-Regular.ttf" id="1_gfhtu"]
+[ext_resource type="FontFile" uid="uid://bf3uewxxp2xmf" path="res://fonts/IBM_Plex_Mono/IBMPlexMono-Regular.ttf" id="1_xxbg1"]
+
+[resource]
+default_font = ExtResource("1_xxbg1")
+default_font_size = 15
+Button/font_sizes/font_size = 12
+Button/fonts/font = ExtResource("1_gfhtu")
+OptionButton/font_sizes/font_size = 12
+OptionButton/fonts/font = ExtResource("1_gfhtu")
+TabContainer/font_sizes/font_size = 16
+TabContainer/fonts/font = ExtResource("1_gfhtu")

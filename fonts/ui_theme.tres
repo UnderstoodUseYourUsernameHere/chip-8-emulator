@@ -1,7 +1,7 @@
 [gd_resource type="Theme" format=3 uid="uid://dl0wnht7fual8"]
 
-[ext_resource type="FontFile" uid="uid://cnj7ag55ndxa5" path="res://fonts/PressStart2P-Regular.ttf" id="1_wpbi6"]
+[ext_resource type="FontFile" uid="uid://bf3uewxxp2xmf" path="res://fonts/IBM_Plex_Mono/IBMPlexMono-Regular.ttf" id="1_wpbi6"]
 
 [resource]
 default_font = ExtResource("1_wpbi6")
-default_font_size = 14
+default_font_size = 15
