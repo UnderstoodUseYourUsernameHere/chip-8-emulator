@@ -137,6 +137,11 @@ const COMPATIBILITY_PROFILES := {
 
 var instructions_per_frame := 11
 var current_rom := ""
+
+const MAX_ROM_BYTES := 4096 - 0x200
+var current_rom_bytes := PackedByteArray()
+var current_rom_id := ""
+
 var paused := false
 var paused_before_help := false
 var last_opcode := 0 ## These ones are something im not sure of, hopefully they work as i think they will
@@ -224,7 +229,20 @@ func update_trace_view() -> void:
 		]
 	trace_label.text = text
 
-func load_rom(path: String) -> bool:
+func load_rom_bytes(rom: PackedByteArray, label: String) -> bool:
+	if rom.is_empty():
+		status = "Cannot load an empty ROM!"
+		return false
+	
+	if rom.size() > MAX_ROM_BYTES:
+		status = "ROM is too large: maximum %d bytes!" % MAX_ROM_BYTES
+		return false
+	
+	var next_rom_id := identify_rom(rom)
+	
+	if next_rom_id != current_rom_id:
+		breakpoints.clear()
+		
 	memory.resize(4096) ## Resets everything to a clean slate
 	memory.fill(0)
 	status = ""
@@ -257,24 +275,55 @@ func load_rom(path: String) -> bool:
 	for i in FONT.size():  ## Font gets loaded into the reserved area
 		memory[FONT_START + i] = FONT[i]
 	
-	var rom := FileAccess.get_file_as_bytes(path)
-	
-	if rom.is_empty():
-		push_error("Could not load ROM: " + path)
-		return false
-	
-	if rom.size() > memory.size() - 0x200:
-		push_error("ROM is too large to fit in CHIP-8 memory: " + path)
-		return false
-	
 	for i in rom.size():
 		memory[0x200 + i] = rom[i]
 	
-	print("Loaded ", rom.size(), " bytes from ", path)
+	current_rom_bytes = rom.duplicate()
+	current_rom = label
+	current_rom_id = next_rom_id
+	
+	rom_loaded = true
+	beep.stop()
+	
+	print("Loaded ", rom.size(), " bytes:", label)
 	return true
 
+func load_rom(path: String) -> bool:
+	var file := FileAccess.open(path, FileAccess.READ)
+	
+	if file == null:
+		status = "Could not open ROM: " + path
+		return false
+	
+	var byte_count := file.get_length()
+	
+	if byte_count < 1 or byte_count > MAX_ROM_BYTES:
+		file.close()
+		status = "ROM must contain 1 to %d bytes!" % MAX_ROM_BYTES
+		return false
+	
+	var bytes := file.get_buffer(byte_count)
+	file.close()
+	
+	if bytes.size() != byte_count:
+		status = "Could not load the complete ROM!"
+		return false
+	
+	return load_rom_bytes(bytes, path)
+
 func reset_rom() -> void:
-	rom_loaded = load_rom(current_rom)
+	if current_rom_bytes.is_empty():
+		status = "No cartridge to reset."
+		return
+	
+	var was_paused := paused
+	
+	load_rom_bytes(
+		current_rom_bytes.duplicate(),
+		current_rom
+	)
+	
+	paused = was_paused
 
 func scan_roms() -> void:
 	rom_names.clear()
@@ -291,6 +340,8 @@ func scan_roms() -> void:
 	rom_names.sort()
 
 func setup_screen() -> void:
+	display.resize(64 * 32)
+	display.fill(0)
 	img = Image.create_empty(64, 32, false, Image.FORMAT_RGB8)
 	img.fill(Color.BLACK)
 	tex = ImageTexture.create_from_image(img)
@@ -382,6 +433,8 @@ func _on_quirk_toggled(
 	status = "Custom Compatibility settings enabled."
 
 func setup_keypad() -> void:
+	keys.resize(16)
+	keys.fill(0)
 	pad_keys.resize(16)
 	pad_keys.fill(0)
 	
@@ -584,10 +637,15 @@ func _on_rom_selected(index: int) -> void:
 		return
 	var next_path: String = rom_paths[rom_names[index]]
 	rom_picker.tooltip_text = rom_names[index]
-	if next_path != current_rom:
-		breakpoints.clear()
-	current_rom = next_path
-	rom_loaded = load_rom(current_rom)
+	
+	if load_rom(next_path):
+		rom_picker.tooltip_text = rom_names[index]
+
+func identify_rom(bytes: PackedByteArray) -> String:
+	var context := HashingContext.new()
+	context.start(HashingContext.HASH_SHA256)
+	context.update(bytes)
+	return context.finish().hex_encode() ## If i do this right, it should be able to recognize ROMS even when their names change, which is useful for preferences. 
 
 func _on_display_wait_toggled(enabled: bool) -> void:
 	display_wait_enabled = enabled
@@ -609,13 +667,17 @@ func _on_files_dropped(files: PackedStringArray) -> void:
 	status = "Drop a .ch8 file in here."
 
 func load_external_rom(path: String) -> void:
-	if path != current_rom:
-		breakpoints.clear()
-	current_rom = path
-	rom_loaded = load_rom(path)
-	if rom_loaded:
-		rom_picker.select(-1)
-		paused = false
+	if load_rom(path):
+		finish_custom_rom_load()
+
+func finish_custom_rom_load() -> void:
+	if help_overlay.visible:
+		show_help(false)
+	
+	paused = false
+	
+	rom_picker.select(-1)
+	rom_picker.tooltip_text = current_rom.get_file()
 
 func _input(event: InputEvent) -> void:
 	if event is InputEventMouseButton:

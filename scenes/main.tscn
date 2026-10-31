@@ -111,7 +111,7 @@ text = "Controls : -"
 autowrap_mode = 3
 
 [node name="Debugger" type="TabContainer" parent="MarginContainer/MainColumn" unique_id=1577134825]
-custom_minimum_size = Vector2(0, 280)
+custom_minimum_size = Vector2(0, 120)
 layout_mode = 2
 size_flags_horizontal = 3
 size_flags_vertical = 3
@@ -128,8 +128,6 @@ unique_name_in_owner = true
 custom_minimum_size = Vector2(100, 0)
 layout_mode = 2
 size_flags_horizontal = 3
-theme_override_fonts/font = ExtResource("2_0wfyh")
-theme_override_font_sizes/font_size = 11
 horizontal_alignment = 1
 vertical_alignment = 1
 
@@ -177,6 +175,7 @@ metadata/_tab_index = 4
 
 [node name="Label" type="Label" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=1633237348]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9098039, 0.7137255, 0.36078432, 1)
 text = "COMPAT. PROFILE"
 
 [node name="ProfilePicker" type="OptionButton" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=540693883]
@@ -185,6 +184,7 @@ layout_mode = 2
 
 [node name="Label2" type="Label" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=325121338]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9098039, 0.7137255, 0.36078432, 1)
 text = "ADVANCED BEHAVIOR"
 
 [node name="QuirkBox" type="VBoxContainer" parent="MarginContainer/MainColumn/Debugger/Settings" unique_id=959373423]
@@ -220,6 +220,7 @@ layout_mode = 2
 
 [node name="Label" type="Label" parent="HelpOverlay/CenterContainer/VBoxContainer" unique_id=604334603]
 layout_mode = 2
+theme_override_colors/font_color = Color(0.9098039, 0.7137255, 0.36078432, 1)
 theme_override_fonts/font = ExtResource("2_0wfyh")
 theme_override_font_sizes/font_size = 28
 text = "CHIP-8 · 1977"

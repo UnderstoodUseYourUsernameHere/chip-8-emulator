@@ -6,8 +6,11 @@
 [resource]
 default_font = ExtResource("1_xxbg1")
 default_font_size = 15
+BoxContainer/constants/separation = 8
 Button/font_sizes/font_size = 12
 Button/fonts/font = ExtResource("1_gfhtu")
+GridContainer/constants/h_separation = 8
+GridContainer/constants/v_separation = 8
 OptionButton/font_sizes/font_size = 12
 OptionButton/fonts/font = ExtResource("1_gfhtu")
 TabContainer/font_sizes/font_size = 16
