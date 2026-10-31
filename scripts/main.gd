@@ -485,6 +485,68 @@ func setup_settings() -> void:
 	speed_slider.focus_mode = Control.FOCUS_NONE
 	wait_check.focus_mode = Control.FOCUS_NONE
 
+func setup_web_rom_import() -> void:
+	if not OS.has_feature("web"):
+		return
+	
+	JavaScriptBridge.eval("""
+	window.chip8Files = {
+		ready: false,
+		name: "",
+		bytes: null,
+		error: ""
+	};
+	
+	window.chip8Files.choose = function() {
+		const input = document.createElement("input");
+		input.type = "file";
+		input.accept = ".ch8";
+		input.style.display = "none";
+		
+		input.addEventListener("change", function() {
+			const file = input.files[0];
+			input.remove();
+			
+			if (!file) {
+				return;
+			};
+			
+			if (!file.name.toLowerCase().endsWith(".ch8")) {
+				window.chip8File.error = "Choose a .ch8 ROM file!";
+				window.chip8Files.ready = true;
+				return;
+			}
+			
+			if (file.size < 1 || file.size > 3584) {
+				window.chip8Files.error = "ROM must contain 1 to 3584 bytes!.";
+			window.chip8Files.ready = true;
+			return;
+			};
+			
+			const reader = new FileReader();
+			
+			reader.onload = function() {
+				window.chip8Files.name = file.name;
+				window.chip8Files.bytes = new Uint8Array(reader.result);
+				window.chip8Files.error = "";
+				window.chip8Files.ready = true;
+			};
+			
+			reader.onerror = function() {
+				window.chip8Files.name = "";
+				window.chip8Files.bytes = null;
+				window.chip8Files.error = "The browser couldnt read that file!";
+				window.chip8Files.ready = true;
+			}
+			
+			reader.readAsArrayBuffer(file);
+		},	{once: true });
+		
+		document.body.appendChild(input);
+		input.click();
+	};
+	""", true)
+
 func setup_sound() -> void:
 	var rate := 22050
 	var frames := int(rate / 440.0)
@@ -516,14 +578,23 @@ func setup_picker() -> void:
 	rom_picker.focus_mode = Control.FOCUS_NONE
 
 func setup_open_dialog() -> void:
+	%OpenButton.pressed.connect(open_rom_dialog)
+	
+	if OS.has_feature("web"):
+		return
+	
 	open_dialog.file_mode = FileDialog.FILE_MODE_OPEN_FILE
 	open_dialog.access = FileDialog.ACCESS_FILESYSTEM
-	open_dialog.filters = PackedStringArray(["*.ch8 ; CHIP-8 ROM"])
+	open_dialog.filters = PackedStringArray([
+		"*.ch8 ; CHIP-8 ROM"
+	])
 	open_dialog.title = "Open CHIP-8 ROM"
+	
 	open_dialog.file_selected.connect(load_external_rom)
+	
 	add_child(open_dialog)
+	
 	get_window().files_dropped.connect(_on_files_dropped)
-	%OpenButton.pressed.connect(open_rom_dialog)
 
 func capture_rewind_state() -> Dictionary:
 	return {
@@ -656,8 +727,60 @@ func _on_display_wait_toggled(enabled: bool) -> void:
 	status = "Custom compat. settings enabled."
 
 func open_rom_dialog() -> void:
-	paused = true
-	open_dialog.popup_centered(Vector2i(720, 460))
+	if OS.has_feature("web"):
+		JavaScriptBridge.eval(
+			"window.chip8Files.choose()",
+			true
+		)
+	else:
+		open_dialog.popup_centered(Vector2i(720, 460))
+
+func poll_web_rom_import() -> void:
+	if not OS.has_feature("web"):
+		return
+	
+	var ready: Variant = JavaScriptBridge.eval(
+		"window.chip8Files.ready",
+		true
+	)
+	
+	if ready != true:
+		return
+	
+	var error_text := str(JavaScriptBridge.eval(
+		"window.chip8Files.error",
+		true
+	))
+	
+	var file_name := str(JavaScriptBridge.eval(
+		"window.chip8Files.name",
+		true
+	))
+	
+	var payload: Variant = JavaScriptBridge.eval(
+		"window.chip8Files.bytes",
+		true
+	)
+	
+	JavaScriptBridge.eval("""
+	window.chip8Files.ready = false;
+	window.chip8Files.name = "";
+	window.chip8Files.bytes = null;
+	window.chip8Files.error = "";
+	""", true)
+	
+	if not error_text.is_empty():
+		status = error_text
+		return
+	
+	if typeof(payload) != TYPE_PACKED_BYTE_ARRAY:
+		status = "The browser returned invalid ROM data."
+		return
+	
+	var rom_bytes: PackedByteArray = payload
+	
+	if load_rom_bytes(rom_bytes, file_name):
+		finish_custom_rom_load()
 
 func _on_files_dropped(files: PackedStringArray) -> void:
 	for f in files:
@@ -876,10 +999,12 @@ func _ready() -> void:
 	setup_toolbar()
 	setup_keypad()
 	setup_compatibility_settings()
+	setup_web_rom_import()
 	_on_rom_selected(0)
 	breakpoint_edit.text_submitted.connect(_on_breakpoint_submitted)
 
 func _physics_process(_delta: float) -> void:
+	poll_web_rom_import()
 	read_keys()
 	
 	rewinding = (
