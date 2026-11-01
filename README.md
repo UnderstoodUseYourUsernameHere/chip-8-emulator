@@ -8,7 +8,7 @@ This project emulates the CHIP-8 cpu, memory, etc, which allows you to play the 
 
 ## How to use
 
-Itch demo link (you dont download anything this way, which i find way better): [insert your itch.io link here]
+Itch demo link (you dont download anything this way, which i find way better): https://mustardmustard.itch.io/chip-8-interpreter
 
 Or, you can do this:
 
